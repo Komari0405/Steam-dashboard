@@ -20,6 +20,41 @@ header {
   margin-bottom: 32px;
 }
 
+.profile-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  background: linear-gradient(90deg, #2a475e 0%, #1b2838 100%);
+  border-radius: 10px;
+  border: 1px solid #3a5a75;
+}
+
+.profile-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid #66c0f4;
+}
+
+.profile-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-name {
+  font-size: 20px;
+  color: #ffffff;
+  font-weight: bold;
+}
+
+.profile-sub {
+  font-size: 13px;
+  color: #8f98a0;
+  margin-top: 2px;
+}
+
 h1 {
   color: #ffffff;
   margin-bottom: 20px;
@@ -28,7 +63,7 @@ h1 {
 .stats {
   display: flex;
   gap: 20px;
-  margin-bottom: 32px;
+  margin-bottom: 12px;
 }
 
 .stat-card {
@@ -50,6 +85,12 @@ h1 {
   font-size: 13px;
   color: #8f98a0;
   margin-top: 4px;
+}
+
+.achievements-status {
+  font-size: 13px;
+  color: #8f98a0;
+  margin: 12px 0 0;
 }
 
 .controls {
@@ -89,9 +130,39 @@ h1 {
   border-color: #66c0f4;
 }
 
+.toggle-btn {
+  padding: 14px 18px;
+  border-radius: 6px;
+  border: 1px solid #2a475e;
+  background-color: #16202d;
+  color: #ffffff;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.toggle-btn:hover {
+  background-color: #2a475e;
+}
+
+.toggle-btn.active {
+  background-color: #66c0f4;
+  color: #1b2838;
+  border-color: #66c0f4;
+  font-weight: bold;
+}
+
 /* ランキングセクション */
 .ranking-section {
   margin-bottom: 40px;
+}
+
+.ranking-description {
+  font-size: 13px;
+  color: #8f98a0;
+  margin: 0 0 12px;
+  line-height: 1.5;
 }
 
 .ranking-section h2 {
@@ -151,6 +222,24 @@ h1 {
 }
 .rank-3 .rank-number {
   color: #cd7f32;
+}
+
+
+.unplayed-section {
+  margin-bottom: 40px;
+}
+
+.unplayed-section h2 {
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.unplayed-card {
+  opacity: 0.75;
+}
+
+.unplayed-card:hover {
+  opacity: 1;
 }
 
 /* ゲーム一覧グリッド */
@@ -213,6 +302,12 @@ h1 {
   min-width: 0;
 }
 
+.game-achievement {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #a3cf06;
+}
+
 .game-time {
   margin: 0 0 0 auto;
   font-size: 13px;
@@ -227,4 +322,74 @@ h1 {
   text-align: center;
   margin-top: 50px;
   font-size: 18px;
+}
+
+.gacha-box {
+  background-color: #16202d;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  border: 1px solid #2a475e;
+}
+
+.gacha-btn {
+  padding: 14px 28px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(90deg, #66c0f4 0%, #4a90d9 100%);
+  color: #1b2838;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.gacha-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.gacha-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gacha-result {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: gachaFadeIn 0.4s ease;
+}
+
+.gacha-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  border: 2px solid #66c0f4;
+  margin-bottom: 10px;
+}
+
+.gacha-name {
+  font-size: 12px;
+  color: #8f98a0;
+  margin: 0;
+}
+
+.gacha-game-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  margin: 4px 0 0;
+}
+
+@keyframes gachaFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

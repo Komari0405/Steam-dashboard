@@ -136,6 +136,138 @@ app.get('/api/achievements/summary/all', async (req, res) => {
   }
 });
 
+// フレンドリストを取得するエンドポイント
+app.get('/api/friends', async (req, res) => {
+  try {
+    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&relationship=friend`;
+    const friendsResponse = await fetch(friendsUrl);
+    const friendsData = await friendsResponse.json();
+
+    if (!friendsData.friendslist) {
+      return res.json({ friends: [] });
+    }
+
+    const friendIds = friendsData.friendslist.friends.map(f => f.steamid);
+
+    const summariesUrl = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${friendIds.join(',')}`;
+    const summariesResponse = await fetch(summariesUrl);
+    const summariesData = await summariesResponse.json();
+
+    const friends = summariesData.response.players.map(p => ({
+      steamId: p.steamid,
+      displayName: p.personaname,
+      avatarUrl: p.avatarfull,
+      profileState: p.communityvisibilitystate
+    }));
+
+    res.json({ friends });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'フレンドリストの取得に失敗しました' });
+  }
+});
+
+// フレンドランキング用:全フレンド(+自分)の代表スコアを計算するエンドポイント
+app.get('/api/friends/ranking', async (req, res) => {
+  try {
+    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&relationship=friend`;
+    const friendsResponse = await fetch(friendsUrl);
+    const friendsData = await friendsResponse.json();
+
+    if (!friendsData.friendslist) {
+      return res.json({ ranking: [] });
+    }
+
+    const friendIds = friendsData.friendslist.friends.map(f => f.steamid);
+
+    const summariesUrl = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${friendIds.join(',')}`;
+    const summariesResponse = await fetch(summariesUrl);
+    const summariesData = await summariesResponse.json();
+    const profiles = summariesData.response.players;
+
+    const results = [];
+
+    const allPlayers = [
+      { steamid: STEAM_ID, personaname: 'あなた', avatarfull: null, communityvisibilitystate: 3 },
+      ...profiles
+    ];
+
+    for (const player of allPlayers) {
+      try {
+        if (player.communityvisibilitystate !== 3) {
+          results.push({
+            steamId: player.steamid,
+            displayName: player.personaname,
+            avatarUrl: player.avatarfull,
+            error: 'プロフィールが非公開のため取得できません'
+          });
+          continue;
+        }
+
+        const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${player.steamid}&format=json&include_appinfo=true`;
+        const gamesResponse = await fetch(gamesUrl);
+        const gamesData = await gamesResponse.json();
+
+        const ownedGames = gamesData.response.games || [];
+        const gameCount = ownedGames.length;
+        const totalPlaytimeHours = ownedGames.reduce((sum, g) => sum + g.playtime_forever, 0) / 60;
+
+        // 一番プレイ時間が長いゲームと、一番スコアが高いゲームを探す
+        let topGame = null;
+        let topScore = 0;
+        let topScoreGame = null;
+
+        for (const g of ownedGames) {
+          const playtimeHours = g.playtime_forever / 60;
+          const gameScore = Math.min(100, Math.log10(g.playtime_forever + 1) * 20);
+
+          if (!topGame || playtimeHours > topGame.playtimeHours) {
+            topGame = {
+              name: g.name,
+              playtimeHours: Math.round(playtimeHours * 10) / 10,
+              iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
+            };
+          }
+
+          if (gameScore > topScore) {
+            topScore = gameScore;
+            topScoreGame = {
+              name: g.name,
+              score: Math.round(gameScore * 10) / 10,
+              iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
+            };
+          }
+        }
+
+        results.push({
+          steamId: player.steamid,
+          displayName: player.personaname,
+          avatarUrl: player.avatarfull,
+          gameCount,
+          totalPlaytimeHours: Math.round(totalPlaytimeHours * 10) / 10,
+          topGame,
+          topScoreGame
+        });
+      } catch (err) {
+        results.push({
+          steamId: player.steamid,
+          displayName: player.personaname,
+          avatarUrl: player.avatarfull,
+          error: '取得に失敗しました'
+        });
+      }
+
+      // レート制限対策
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    res.json({ ranking: results });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'フレンドランキングの取得に失敗しました' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`サーバー起動: http://localhost:${PORT}`);
 });
