@@ -266,6 +266,90 @@ app.get('/api/friends/ranking', async (req, res) => {
   }
 });
 
+// ウィッシュリストを取得するエンドポイント
+app.get('/api/wishlist', async (req, res) => {
+  try {
+    const url = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${STEAM_ID}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (!data.response || !data.response.items) {
+      return res.json({ wishlist: [] });
+    }
+
+    const appIds = data.response.items.map(item => item.appid);
+
+    res.json({ wishlist: appIds });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'ウィッシュリストの取得に失敗しました' });
+  }
+});
+
+// ウィッシュリストの価格・セール情報を取得するエンドポイント
+app.get('/api/wishlist/prices', async (req, res) => {
+  try {
+    const wishlistUrl = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${STEAM_ID}`;
+    const wishlistResponse = await fetch(wishlistUrl);
+    const wishlistData = await wishlistResponse.json();
+
+    if (!wishlistData.response || !wishlistData.response.items) {
+      return res.json({ items: [] });
+    }
+
+    const appIds = wishlistData.response.items.map(item => item.appid);
+    const results = [];
+
+    for (const appId of appIds) {
+      try {
+        const detailUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=jp&filters=price_overview,basic`;
+        const detailResponse = await fetch(detailUrl);
+        const detailData = await detailResponse.json();
+
+        const appData = detailData[appId];
+
+        if (appData && appData.success && appData.data) {
+          const priceInfo = appData.data.price_overview;
+
+          if (priceInfo) {
+            results.push({
+              appId,
+              name: appData.data.name,
+              iconUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              currentPrice: priceInfo.final / 100,
+              originalPrice: priceInfo.initial / 100,
+              discountPercent: priceInfo.discount_percent
+            });
+          } else {
+            // 無料ゲームや価格情報がない場合
+            results.push({
+              appId,
+              name: appData.data.name,
+              iconUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              currentPrice: null,
+              originalPrice: null,
+              discountPercent: 0
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`appId ${appId} の取得に失敗:`, err.message);
+      }
+
+      // レート制限対策
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // 割引率が高い順に並べる
+    results.sort((a, b) => b.discountPercent - a.discountPercent);
+
+    res.json({ items: results });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'ウィッシュリストの価格取得に失敗しました' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`サーバー起動: http://localhost:${PORT}`);
 });
