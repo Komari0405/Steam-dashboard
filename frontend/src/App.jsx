@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 
+const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
+
 function App() {
   const [games, setGames] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -12,12 +14,15 @@ function App() {
   const [showUnplayed, setShowUnplayed] = useState(false);
   const [gachaResult, setGachaResult] = useState(null);
   const [isSpinning, setIsSpinning] = useState(false);
+  const [friendRanking, setFriendRanking] = useState([]);
+  const [friendRankingLoading, setFriendRankingLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/games')
       .then(res => res.json())
       .then(data => {
-        setGames(data.games);
+        const filtered = data.games.filter(g => !EXCLUDED_APP_IDS.includes(g.appId));
+        setGames(filtered);
         setLoading(false);
       })
       .catch(err => {
@@ -44,6 +49,17 @@ function App() {
         console.error(err);
         setAchievementsLoading(false);
       });
+
+    fetch('http://localhost:3000/api/friends/ranking')
+      .then(res => res.json())
+      .then(data => {
+        setFriendRanking(data.ranking || []);
+        setFriendRankingLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setFriendRankingLoading(false);
+      });
   }, []);
 
   if (loading) return <p className="loading">読み込み中...</p>;
@@ -69,12 +85,12 @@ function App() {
   const totalHours = games.reduce((sum, g) => sum + g.playtimeHours, 0);
   const unplayedCount = games.filter(g => g.playtimeHours === 0).length;
   const unplayedGames = games.filter(g => g.playtimeHours === 0);
+
   const spinGacha = () => {
     if (unplayedGames.length === 0) return;
     setIsSpinning(true);
     setGachaResult(null);
 
-    // 演出のため少し待ってから結果を出す
     setTimeout(() => {
       const randomIndex = Math.floor(Math.random() * unplayedGames.length);
       setGachaResult(unplayedGames[randomIndex]);
@@ -87,24 +103,17 @@ function App() {
     .sort((a, b) => b.playtimeHours - a.playtimeHours)
     .slice(0, 10);
 
-  // 各ゲームの総合スコアを計算(簡易版:プレイ時間 + 実績解除率)
   const calculateScore = (game) => {
     const ach = achievements[game.appId];
     const achievementRate = ach && ach.hasAchievements ? ach.unlockRate : 0;
 
-    // プレイ時間スコア(対数化して頭打ちにする、0〜100点)
     const playtimeScore = Math.min(100, Math.log10(game.playtimeHours * 60 + 1) * 20);
-
-    // 実績解除率スコアはそのまま0〜100
     const achievementScore = achievementRate;
-
-    // 重み付け合成(暫定:プレイ時間0.5、実績0.5)
     const totalScore = playtimeScore * 0.5 + achievementScore * 0.5;
 
     return Math.round(totalScore * 10) / 10;
   };
 
-  // 総合スコアランキング(プレイ時間があるゲームのみ対象)
   const scoreRanking = [...games]
     .filter(game => game.playtimeHours > 0)
     .map(game => ({
@@ -115,6 +124,23 @@ function App() {
     .slice(0, 10);
 
   const showRanking = !search && sortBy === 'playtime-desc';
+
+  const validFriends = friendRanking.filter(f => !f.error);
+
+  const friendTotalPlaytimeRanking = [...validFriends]
+    .filter(f => f.totalPlaytimeHours > 0)
+    .sort((a, b) => b.totalPlaytimeHours - a.totalPlaytimeHours)
+    .slice(0, 10);
+
+  const friendTopGameRanking = [...validFriends]
+    .filter(f => f.topGame)
+    .sort((a, b) => b.topGame.playtimeHours - a.topGame.playtimeHours)
+    .slice(0, 10);
+
+  const friendTopScoreRanking = [...validFriends]
+    .filter(f => f.topScoreGame)
+    .sort((a, b) => b.topScoreGame.score - a.topScoreGame.score)
+    .slice(0, 10);
 
   return (
     <div className="container">
@@ -227,7 +253,7 @@ function App() {
             {gachaResult && !isSpinning && (
               <div className="gacha-result">
                 <img src={gachaResult.iconUrl} alt={gachaResult.name} className="gacha-icon" />
-                <p className="gacha-name">今日はこれをプレイ!</p>
+                <p className="gacha-label">今日はこれをプレイ!</p>
                 <p className="gacha-game-name">{gachaResult.name}</p>
               </div>
             )}
@@ -245,6 +271,77 @@ function App() {
           </div>
         </div>
       )}
+
+      <div className="friend-ranking-block">
+        <h2 className="friend-ranking-title">👥 フレンドランキング</h2>
+        <p className="ranking-note">※ Lossless Scalingはランキングから除外しています</p>
+        {friendRankingLoading && (
+          <p className="achievements-status">フレンドのデータを取得中...(少し時間がかかります)</p>
+        )}
+
+        {!friendRankingLoading && (
+          <>
+            <div className="ranking-section">
+              <h3>合計プレイ時間ランキング</h3>
+              <p className="ranking-description">
+                所持ゲーム全体の合計プレイ時間で比較したフレンドランキングです。
+              </p>
+              <div className="ranking-list">
+                {friendTotalPlaytimeRanking.map((friend, index) => (
+                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    {friend.avatarUrl && (
+                      <img src={friend.avatarUrl} alt={friend.displayName} className="game-icon friend-avatar" />
+                    )}
+                    <div className="game-info">
+                      <p className="game-name">{friend.displayName}</p>
+                    </div>
+                    <p className="game-time">{friend.totalPlaytimeHours}h</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ranking-section">
+              <h3>一番遊んでるゲーム ランキング</h3>
+              <p className="ranking-description">
+                それぞれのフレンドが一番長くプレイしているゲームのプレイ時間で比較したランキングです。
+              </p>
+              <div className="ranking-list">
+                {friendTopGameRanking.map((friend, index) => (
+                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    <img src={friend.topGame.iconUrl} alt={friend.topGame.name} className="game-icon" />
+                    <div className="game-info">
+                      <p className="game-name">{friend.displayName} - {friend.topGame.name}</p>
+                    </div>
+                    <p className="game-time">{friend.topGame.playtimeHours}h</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ranking-section">
+              <h3>一番スコアが高いゲーム ランキング</h3>
+              <p className="ranking-description">
+                それぞれのフレンドが持つゲームの中で、一番スコアが高い1本同士で比較したランキングです。
+              </p>
+              <div className="ranking-list">
+                {friendTopScoreRanking.map((friend, index) => (
+                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    <img src={friend.topScoreGame.iconUrl} alt={friend.topScoreGame.name} className="game-icon" />
+                    <div className="game-info">
+                      <p className="game-name">{friend.displayName} - {friend.topScoreGame.name}</p>
+                    </div>
+                    <p className="game-time">スコア {friend.topScoreGame.score}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="game-grid">
         {filteredGames.map(game => {

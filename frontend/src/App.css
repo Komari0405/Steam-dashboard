@@ -158,6 +158,11 @@ h1 {
   margin-bottom: 40px;
 }
 
+.ranking-section h2 {
+  color: #ffffff;
+  margin-bottom: 16px;
+}
+
 .ranking-description {
   font-size: 13px;
   color: #8f98a0;
@@ -165,9 +170,10 @@ h1 {
   line-height: 1.5;
 }
 
-.ranking-section h2 {
-  color: #ffffff;
-  margin-bottom: 16px;
+.ranking-note {
+  font-size: 12px;
+  color: #6b7785;
+  margin: -8px 0 16px;
 }
 
 .ranking-list {
@@ -224,7 +230,7 @@ h1 {
   color: #cd7f32;
 }
 
-
+/* 積みゲーセクション */
 .unplayed-section {
   margin-bottom: 40px;
 }
@@ -240,6 +246,103 @@ h1 {
 
 .unplayed-card:hover {
   opacity: 1;
+}
+
+/* ガチャ */
+.gacha-box {
+  background-color: #16202d;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 24px;
+  border: 1px solid #2a475e;
+}
+
+.gacha-btn {
+  padding: 14px 28px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(90deg, #66c0f4 0%, #4a90d9 100%);
+  color: #1b2838;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.gacha-btn:hover:not(:disabled) {
+  transform: scale(1.03);
+}
+
+.gacha-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gacha-result {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: gachaFadeIn 0.4s ease;
+}
+
+.gacha-icon {
+  width: 64px !important;
+  height: 64px !important;
+  min-width: 64px;
+  min-height: 64px;
+  max-width: 64px;
+  max-height: 64px;
+  border-radius: 8px;
+  border: 2px solid #66c0f4;
+  margin-bottom: 10px;
+  object-fit: cover;
+  display: block;
+}
+
+.gacha-label {
+  font-size: 12px;
+  color: #8f98a0;
+  margin: 0;
+}
+
+.gacha-game-name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #ffffff;
+  margin: 4px 0 0;
+}
+
+@keyframes gachaFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* フレンドランキング */
+.friend-ranking-block {
+  margin-bottom: 40px;
+}
+
+.friend-ranking-title {
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.friend-ranking-block h3 {
+  color: #ffffff;
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.friend-avatar {
+  border-radius: 50%;
 }
 
 /* ゲーム一覧グリッド */
@@ -322,74 +425,4 @@ h1 {
   text-align: center;
   margin-top: 50px;
   font-size: 18px;
-}
-
-.gacha-box {
-  background-color: #16202d;
-  border-radius: 10px;
-  padding: 24px;
-  text-align: center;
-  margin-bottom: 24px;
-  border: 1px solid #2a475e;
-}
-
-.gacha-btn {
-  padding: 14px 28px;
-  border-radius: 8px;
-  border: none;
-  background: linear-gradient(90deg, #66c0f4 0%, #4a90d9 100%);
-  color: #1b2838;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-
-.gacha-btn:hover:not(:disabled) {
-  transform: scale(1.03);
-}
-
-.gacha-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.gacha-result {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  animation: gachaFadeIn 0.4s ease;
-}
-
-.gacha-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 8px;
-  border: 2px solid #66c0f4;
-  margin-bottom: 10px;
-}
-
-.gacha-name {
-  font-size: 12px;
-  color: #8f98a0;
-  margin: 0;
-}
-
-.gacha-game-name {
-  font-size: 20px;
-  font-weight: bold;
-  color: #ffffff;
-  margin: 4px 0 0;
-}
-
-@keyframes gachaFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }

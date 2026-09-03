@@ -8,6 +8,7 @@ app.use(cors());
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
 const STEAM_ID = process.env.STEAM_ID;
+const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
 
 app.get('/', (req, res) => {
   res.send('Steam Dashboard API is running!');
@@ -125,7 +126,6 @@ app.get('/api/achievements/summary/all', async (req, res) => {
         results.push({ appId: game.appid, hasAchievements: false, error: true });
       }
 
-      // レート制限対策:リクエスト間に少し間隔を空ける
       await new Promise(resolve => setTimeout(resolve, 150));
     }
 
@@ -208,11 +208,10 @@ app.get('/api/friends/ranking', async (req, res) => {
         const gamesResponse = await fetch(gamesUrl);
         const gamesData = await gamesResponse.json();
 
-        const ownedGames = gamesData.response.games || [];
+        const ownedGames = (gamesData.response.games || []).filter(g => !EXCLUDED_APP_IDS.includes(g.appid));
         const gameCount = ownedGames.length;
         const totalPlaytimeHours = ownedGames.reduce((sum, g) => sum + g.playtime_forever, 0) / 60;
 
-        // 一番プレイ時間が長いゲームと、一番スコアが高いゲームを探す
         let topGame = null;
         let topScore = 0;
         let topScoreGame = null;
@@ -257,7 +256,6 @@ app.get('/api/friends/ranking', async (req, res) => {
         });
       }
 
-      // レート制限対策
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
