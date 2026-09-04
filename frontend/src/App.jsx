@@ -29,6 +29,9 @@ function App() {
   });
   const [showHiddenManager, setShowHiddenManager] = useState(false);
   const [anonymousShare, setAnonymousShare] = useState(true);
+  const [copyStatus, setCopyStatus] = useState(null);
+  const [authUser, setAuthUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem('theme') || 'dark';
@@ -45,7 +48,20 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/games')
+    fetch('http://localhost:3000/auth/user', { credentials: 'include' })
+      .then(res => res.json())
+      .then(data => {
+        setAuthUser(data.loggedIn ? data.user : null);
+        setAuthChecked(true);
+      })
+      .catch(err => {
+        console.error(err);
+        setAuthChecked(true);
+      });
+  }, []);
+
+  useEffect(() => {
+    fetch('http://localhost:3000/api/games', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const filtered = data.games.filter(g => !EXCLUDED_APP_IDS.includes(g.appId));
@@ -57,12 +73,25 @@ function App() {
         setLoading(false);
       });
 
-    fetch('http://localhost:3000/api/profile')
+    fetch('http://localhost:3000/api/profile', { credentials: 'include' })
       .then(res => res.json())
       .then(data => setProfile(data))
       .catch(err => console.error(err));
 
-    fetch('http://localhost:3000/api/achievements/summary/all')
+    // 実績データ:24時間以内のキャッシュがあれば先に表示し、バックグラウンドで裏取得
+    const ACH_CACHE_KEY = 'achievementsCache';
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+    let usedAchCache = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem(ACH_CACHE_KEY) || 'null');
+      if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) {
+        setAchievements(cached.data);
+        setAchievementsLoading(false);
+        usedAchCache = true;
+      }
+    } catch {}
+
+    fetch('http://localhost:3000/api/achievements/summary/all', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const achMap = {};
@@ -71,24 +100,43 @@ function App() {
         });
         setAchievements(achMap);
         setAchievementsLoading(false);
+        try {
+          localStorage.setItem(ACH_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: achMap }));
+        } catch {}
       })
       .catch(err => {
         console.error(err);
-        setAchievementsLoading(false);
+        if (!usedAchCache) setAchievementsLoading(false);
       });
 
-    fetch('http://localhost:3000/api/friends/ranking')
+    // フレンドランキング:同様に24時間キャッシュ
+    const FRIEND_CACHE_KEY = 'friendRankingCache';
+    let usedFriendCache = false;
+    try {
+      const cached = JSON.parse(localStorage.getItem(FRIEND_CACHE_KEY) || 'null');
+      if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) {
+        setFriendRanking(cached.data);
+        setFriendRankingLoading(false);
+        usedFriendCache = true;
+      }
+    } catch {}
+
+    fetch('http://localhost:3000/api/friends/ranking', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
-        setFriendRanking(data.ranking || []);
+        const ranking = data.ranking || [];
+        setFriendRanking(ranking);
         setFriendRankingLoading(false);
+        try {
+          localStorage.setItem(FRIEND_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: ranking }));
+        } catch {}
       })
       .catch(err => {
         console.error(err);
-        setFriendRankingLoading(false);
+        if (!usedFriendCache) setFriendRankingLoading(false);
       });
 
-    fetch('http://localhost:3000/api/wishlist/prices')
+    fetch('http://localhost:3000/api/wishlist/prices', { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setWishlistItems(data.items || []);
@@ -283,40 +331,41 @@ function App() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const downloadShareImage = () => {
+  // 共有画像のcanvasを生成する共通関数(ダウンロード・クリップボードコピーの両方で使う)
+  const buildShareCanvas = () => {
     const canvas = document.createElement('canvas');
     canvas.width = 800;
     canvas.height = 500;
     const ctx = canvas.getContext('2d');
 
-    // 背景
-    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, '#2a475e');
-    gradient.addColorStop(1, '#1b2838');
-    ctx.fillStyle = gradient;
+    // 背景(新デザインのダークトーンに合わせた単色)
+    ctx.fillStyle = '#11161d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#262f3d';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1);
 
     // タイトル
     const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#e3e8ee';
     ctx.font = 'bold 32px sans-serif';
     ctx.fillText(`${name}のSteamライブラリ`, 40, 60);
 
     // 統計
     ctx.font = '20px sans-serif';
-    ctx.fillStyle = '#66c0f4';
+    ctx.fillStyle = '#ffb238';
     const total = Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0));
     ctx.fillText(`所持ゲーム数: ${visibleGames.length}本  /  総プレイ時間: ${total}時間`, 40, 110);
 
     let extraLineOffset = 0;
     if (rankDiffText) {
-      ctx.fillStyle = '#ffd700';
+      ctx.fillStyle = '#e8c55a';
       ctx.font = 'bold 18px sans-serif';
       ctx.fillText(rankDiffText, 40, 140);
       extraLineOffset += 25;
     }
     if (myBadges.length > 0) {
-      ctx.fillStyle = '#c7d5e0';
+      ctx.fillStyle = '#838f9f';
       ctx.font = '16px sans-serif';
       ctx.fillText(`称号: ${myBadges.map(b => b.label).join(' / ')}`, 40, 140 + extraLineOffset);
       extraLineOffset += 25;
@@ -324,44 +373,64 @@ function App() {
 
     // 区切り線(順位・称号表示がある場合は少し下にずらす)
     const lineY = 140 + extraLineOffset + (extraLineOffset > 0 ? 25 : 0);
-    ctx.strokeStyle = '#3a5a75';
+    ctx.strokeStyle = '#37424f';
     ctx.beginPath();
     ctx.moveTo(40, lineY);
     ctx.lineTo(760, lineY);
     ctx.stroke();
 
     // TOP3見出し
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#e3e8ee';
     ctx.font = 'bold 24px sans-serif';
     ctx.fillText('プレイ時間 TOP3', 40, lineY + 50);
 
     // TOP3リスト
-    const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+    const medalColors = ['#e8c55a', '#c3ccd6', '#c2895f'];
     shareTop3.forEach((g, i) => {
       const y = lineY + 100 + i * 70;
-      ctx.fillStyle = medalColors[i] || '#66c0f4';
+      ctx.fillStyle = medalColors[i] || '#ffb238';
       ctx.font = 'bold 28px sans-serif';
       ctx.fillText(`${i + 1}`, 40, y);
 
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = '#e3e8ee';
       ctx.font = '22px sans-serif';
       const displayName = g.name.length > 28 ? g.name.slice(0, 28) + '…' : g.name;
       ctx.fillText(displayName, 90, y);
 
-      ctx.fillStyle = '#66c0f4';
+      ctx.fillStyle = '#ffb238';
       ctx.font = '18px sans-serif';
       ctx.fillText(`${g.playtimeHours}h`, 700, y);
     });
 
     // フッター
-    ctx.fillStyle = '#6b7785';
+    ctx.fillStyle = '#566072';
     ctx.font = '14px sans-serif';
     ctx.fillText('Steam Dashboard', 40, 470);
 
+    return canvas;
+  };
+
+  const downloadShareImage = () => {
+    const canvas = buildShareCanvas();
     const link = document.createElement('a');
     link.download = 'steam-library-share.png';
     link.href = canvas.toDataURL('image/png');
     link.click();
+  };
+
+  const copyShareImageToClipboard = async () => {
+    const canvas = buildShareCanvas();
+    try {
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blob })
+      ]);
+      setCopyStatus('コピーしました。Discordの入力欄でCtrl+Vで貼り付けできます。');
+    } catch (err) {
+      console.error(err);
+      setCopyStatus('コピーに失敗しました。お使いのブラウザが対応していない可能性があります。「画像を保存」をお試しください。');
+    }
+    setTimeout(() => setCopyStatus(null), 4000);
   };
 
 
@@ -457,12 +526,28 @@ function App() {
       <header>
         <p className="eyebrow">
           <span>Steam ライブラリ</span>
-          <button
-            className="theme-toggle"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? 'ライトモード' : 'ダークモード'}
-          </button>
+          <span className="eyebrow-actions">
+            {authChecked && (
+              authUser ? (
+                <>
+                  <span className="auth-status">{authUser.displayName}としてログイン中</span>
+                  <a className="theme-toggle" href="http://localhost:3000/auth/logout">
+                    ログアウト
+                  </a>
+                </>
+              ) : (
+                <a className="theme-toggle steam-login-btn" href="http://localhost:3000/auth/steam">
+                  Steamでログイン
+                </a>
+              )
+            )}
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            >
+              {theme === 'dark' ? 'ライトモード' : 'ダークモード'}
+            </button>
+          </span>
         </p>
         <div className="identity-row">
           {profile && (
@@ -548,7 +633,7 @@ function App() {
           <div className="share-section">
             <h2>実績をシェア</h2>
             <p className="ranking-description">
-              所持ゲーム数・総プレイ時間・TOP3ゲームだけをシェアします(SteamIDやプロフィールURLなどの個人情報は含まれません)。
+              所持ゲーム数・総プレイ時間・TOP3ゲームだけをシェアします(SteamIDやプロフィールURLなどの個人情報は含まれません)。画像はX投稿への添付やDiscordへの貼り付けにお使いください。
             </p>
             <label className="share-anon-toggle">
               <input
@@ -586,13 +671,19 @@ function App() {
             </div>
 
             <div className="share-buttons">
-              <button className="share-btn share-btn-x" onClick={shareToX}>
+              <button className="share-btn" onClick={shareToX}>
                 Xでシェア
               </button>
-              <button className="share-btn share-btn-image" onClick={downloadShareImage}>
+              <button className="share-btn" onClick={copyShareImageToClipboard}>
+                画像をコピー(Discord用)
+              </button>
+              <button className="share-btn" onClick={downloadShareImage}>
                 画像を保存
               </button>
             </div>
+            {copyStatus && (
+              <p className="copy-status">{copyStatus}</p>
+            )}
           </div>
 
           {recentTop3.length > 0 && (
@@ -600,7 +691,13 @@ function App() {
               <h2>最近よくプレイしているゲーム</h2>
               <div className="recent-grid">
                 {recentTop3.map(game => (
-                  <div key={game.appId} className="recent-card">
+                  <a
+                    key={game.appId}
+                    href={`https://store.steampowered.com/app/${game.appId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="recent-card"
+                  >
                     <img
                       src={game.iconUrl}
                       alt={game.name}
@@ -609,7 +706,7 @@ function App() {
                     />
                     <p className="recent-name">{game.name}</p>
                     <p className="recent-hours">直近2週間で{game.playtimeRecentHours}h</p>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -689,7 +786,13 @@ function App() {
               <h2>プレイ時間 TOP10</h2>
               <div className="ranking-list">
                 {top10.map((game, index) => (
-                  <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
+                  <a
+                    key={game.appId}
+                    href={`https://store.steampowered.com/app/${game.appId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`ranking-item rank-${index + 1}`}
+                  >
                     <span className="rank-number">{index + 1}</span>
                     <img
                       src={game.iconUrl}
@@ -701,7 +804,7 @@ function App() {
                       <p className="game-name">{game.name}</p>
                     </div>
                     <p className="game-time">{game.playtimeHours}h</p>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -715,7 +818,13 @@ function App() {
               </p>
               <div className="ranking-list">
                 {scoreRanking.map((game, index) => (
-                  <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
+                  <a
+                    key={game.appId}
+                    href={`https://store.steampowered.com/app/${game.appId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`ranking-item rank-${index + 1}`}
+                  >
                     <span className="rank-number">{index + 1}</span>
                     <img
                       src={game.iconUrl}
@@ -727,7 +836,7 @@ function App() {
                       <p className="game-name">{game.name}</p>
                     </div>
                     <p className="game-time">スコア {game.score}</p>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -759,7 +868,13 @@ function App() {
 
               <div className="game-grid">
                 {unplayedGames.map(game => (
-                  <div key={game.appId} className="game-card unplayed-card">
+                  <a
+                    key={game.appId}
+                    href={`https://store.steampowered.com/app/${game.appId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="game-card unplayed-card"
+                  >
                     <img
                       src={game.iconUrl}
                       alt={game.name}
@@ -769,7 +884,7 @@ function App() {
                     <div className="game-info">
                       <p className="game-name">{game.name}</p>
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -779,7 +894,13 @@ function App() {
             {filteredGames.map(game => {
               const ach = achievements[game.appId];
               return (
-                <div key={game.appId} className="game-card">
+                <a
+                  key={game.appId}
+                  href={`https://store.steampowered.com/app/${game.appId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="game-card"
+                >
                   <img
                     src={game.iconUrl}
                     alt={game.name}
@@ -793,7 +914,7 @@ function App() {
                     )}
                   </div>
                   <p className="game-time">{game.playtimeHours}h</p>
-                </div>
+                </a>
               );
             })}
           </div>
@@ -843,7 +964,13 @@ function App() {
                 </p>
                 <div className="ranking-list">
                   {friendTopGameRanking.map((friend, index) => (
-                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <a
+                      key={friend.steamId}
+                      href={`https://store.steampowered.com/app/${friend.topGame.appId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`ranking-item rank-${index + 1}`}
+                    >
                       <span className="rank-number">{index + 1}</span>
                       <img
                         src={friend.topGame.iconUrl}
@@ -855,7 +982,7 @@ function App() {
                         <p className="game-name">{friend.displayName} - {friend.topGame.name}</p>
                       </div>
                       <p className="game-time">{friend.topGame.playtimeHours}h</p>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -867,7 +994,13 @@ function App() {
                 </p>
                 <div className="ranking-list">
                   {friendTopScoreRanking.map((friend, index) => (
-                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <a
+                      key={friend.steamId}
+                      href={`https://store.steampowered.com/app/${friend.topScoreGame.appId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`ranking-item rank-${index + 1}`}
+                    >
                       <span className="rank-number">{index + 1}</span>
                       <img
                         src={friend.topScoreGame.iconUrl}
@@ -879,7 +1012,7 @@ function App() {
                         <p className="game-name">{friend.displayName} - {friend.topScoreGame.name}</p>
                       </div>
                       <p className="game-time">スコア {friend.topScoreGame.score}</p>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </div>
@@ -891,7 +1024,13 @@ function App() {
                 </p>
                 <div className="ranking-list">
                   {friendTopRecentRanking.map((friend, index) => (
-                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <a
+                      key={friend.steamId}
+                      href={`https://store.steampowered.com/app/${friend.topRecentGame.appId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`ranking-item rank-${index + 1}`}
+                    >
                       <span className="rank-number">{index + 1}</span>
                       <img
                         src={friend.topRecentGame.iconUrl}
@@ -903,7 +1042,7 @@ function App() {
                         <p className="game-name">{friend.displayName} - {friend.topRecentGame.name}</p>
                       </div>
                       <p className="game-time">{friend.topRecentGame.recentHours}h</p>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </div>

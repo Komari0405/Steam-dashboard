@@ -90,6 +90,12 @@ header {
   justify-content: space-between;
 }
 
+.eyebrow-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .theme-toggle {
   padding: 5px 12px;
   border: 1px solid var(--border);
@@ -98,7 +104,19 @@ header {
   font-family: 'IBM Plex Sans JP', sans-serif;
   font-size: 12px;
   cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
   transition: border-color 0.15s, color 0.15s;
+}
+
+.steam-login-btn {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+
+.auth-status {
+  font-size: 12px;
+  color: var(--text-faint);
 }
 
 .theme-toggle:hover {
@@ -375,6 +393,7 @@ h2 {
 
 .share-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin-left: 15px;
 }
@@ -395,12 +414,10 @@ h2 {
   color: var(--accent);
 }
 
-.share-btn-x {
-  border-color: var(--border-strong);
-}
-
-.share-btn-image {
-  border-color: var(--border-strong);
+.copy-status {
+  font-size: 12px;
+  color: var(--positive);
+  margin: 10px 0 0 15px;
 }
 
 /* ---------- Recently played ---------- */
@@ -433,6 +450,14 @@ h2 {
   display: flex;
   flex-direction: column;
   align-items: center;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.recent-card:hover {
+  background-color: var(--panel-raised);
 }
 
 .recent-icon {
@@ -625,6 +650,14 @@ h2 {
   padding: 11px 4px;
   border-bottom: 1px solid var(--border);
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.ranking-item:hover {
+  background-color: var(--panel-raised);
 }
 
 .rank-number {
@@ -846,6 +879,9 @@ h2 {
   gap: 12px;
   transition: background-color 0.15s;
   min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .game-card:hover {

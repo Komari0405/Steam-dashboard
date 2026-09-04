@@ -1,23 +1,94 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const session = require('express-session');
+const passport = require('passport');
+const SteamStrategy = require('passport-steam').Strategy;
+
 const app = express();
 const PORT = 3000;
 
-app.use(cors());
-
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
-const STEAM_ID = process.env.STEAM_ID;
+const DEFAULT_STEAM_ID = process.env.STEAM_ID; // 未ログイン時のフォールバック(あなた自身)
 const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
+
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'steam-dashboard-dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7日間
+  }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
+
+passport.use(new SteamStrategy({
+  returnURL: 'http://localhost:3000/auth/steam/return',
+  realm: 'http://localhost:3000/',
+  apiKey: STEAM_API_KEY
+}, (identifier, profile, done) => {
+  // profile.id が64bitのSteamID
+  return done(null, {
+    steamId: profile.id,
+    displayName: profile.displayName,
+    avatarUrl: profile.photos && profile.photos.length > 0 ? profile.photos[profile.photos.length - 1].value : null
+  });
+}));
+
+// リクエストごとに「今どのSteamIDを見るべきか」を解決するヘルパー
+// ログイン済みならそのユーザーのSteamID、未ログインなら.envのデフォルト(あなた自身)を返す
+function getSteamId(req) {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return req.user.steamId;
+  }
+  return DEFAULT_STEAM_ID;
+}
 
 app.get('/', (req, res) => {
   res.send('Steam Dashboard API is running!');
 });
 
+// Steamログイン開始
+app.get('/auth/steam', passport.authenticate('steam'));
+
+// Steamからのコールバック
+app.get('/auth/steam/return',
+  passport.authenticate('steam', { failureRedirect: '/' }),
+  (req, res) => {
+    res.redirect('http://localhost:5173/');
+  }
+);
+
+// ログアウト
+app.get('/auth/logout', (req, res) => {
+  req.logout(() => {
+    res.redirect('http://localhost:5173/');
+  });
+});
+
+// 今ログインしているユーザー情報(未ログインならnull)
+app.get('/auth/user', (req, res) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    res.json({ loggedIn: true, user: req.user });
+  } else {
+    res.json({ loggedIn: false, user: null });
+  }
+});
+
 // 所持ゲーム一覧を取得するエンドポイント
 app.get('/api/games', async (req, res) => {
   try {
-    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&format=json&include_appinfo=true`;
+    const url = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${getSteamId(req)}&format=json&include_appinfo=true`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -44,7 +115,7 @@ app.get('/api/games', async (req, res) => {
 // プロフィール情報を取得するエンドポイント
 app.get('/api/profile', async (req, res) => {
   try {
-    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${STEAM_ID}`;
+    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${getSteamId(req)}`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -65,7 +136,7 @@ app.get('/api/profile', async (req, res) => {
 app.get('/api/achievements/:appId', async (req, res) => {
   try {
     const { appId } = req.params;
-    const url = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${STEAM_API_KEY}&steamid=${STEAM_ID}`;
+    const url = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${appId}&key=${STEAM_API_KEY}&steamid=${getSteamId(req)}`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -94,7 +165,7 @@ app.get('/api/achievements/:appId', async (req, res) => {
 // 全ゲームの実績解除率をまとめて取得するエンドポイント
 app.get('/api/achievements/summary/all', async (req, res) => {
   try {
-    const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&format=json`;
+    const gamesUrl = `https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${STEAM_API_KEY}&steamid=${getSteamId(req)}&format=json`;
     const gamesResponse = await fetch(gamesUrl);
     const gamesData = await gamesResponse.json();
     const ownedGames = gamesData.response.games || [];
@@ -103,7 +174,7 @@ app.get('/api/achievements/summary/all', async (req, res) => {
 
     for (const game of ownedGames) {
       try {
-        const achUrl = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${game.appid}&key=${STEAM_API_KEY}&steamid=${STEAM_ID}`;
+        const achUrl = `https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid=${game.appid}&key=${STEAM_API_KEY}&steamid=${getSteamId(req)}`;
         const achResponse = await fetch(achUrl);
         const achData = await achResponse.json();
 
@@ -140,7 +211,7 @@ app.get('/api/achievements/summary/all', async (req, res) => {
 // フレンドリストを取得するエンドポイント
 app.get('/api/friends', async (req, res) => {
   try {
-    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&relationship=friend`;
+    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${getSteamId(req)}&relationship=friend`;
     const friendsResponse = await fetch(friendsUrl);
     const friendsData = await friendsResponse.json();
 
@@ -171,7 +242,7 @@ app.get('/api/friends', async (req, res) => {
 // フレンドランキング用:全フレンド(+自分)の代表スコアを計算するエンドポイント
 app.get('/api/friends/ranking', async (req, res) => {
   try {
-    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${STEAM_ID}&relationship=friend`;
+    const friendsUrl = `https://api.steampowered.com/ISteamUser/GetFriendList/v0001/?key=${STEAM_API_KEY}&steamid=${getSteamId(req)}&relationship=friend`;
     const friendsResponse = await fetch(friendsUrl);
     const friendsData = await friendsResponse.json();
 
@@ -189,7 +260,7 @@ app.get('/api/friends/ranking', async (req, res) => {
     const results = [];
 
     const allPlayers = [
-      { steamid: STEAM_ID, personaname: 'あなた', avatarfull: null, communityvisibilitystate: 3 },
+      { steamid: getSteamId(req), personaname: 'あなた', avatarfull: null, communityvisibilitystate: 3 },
       ...profiles
     ];
 
@@ -225,6 +296,7 @@ app.get('/api/friends/ranking', async (req, res) => {
 
           if (!topGame || playtimeHours > topGame.playtimeHours) {
             topGame = {
+              appId: g.appid,
               name: g.name,
               playtimeHours: Math.round(playtimeHours * 10) / 10,
               iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
@@ -234,6 +306,7 @@ app.get('/api/friends/ranking', async (req, res) => {
           if (gameScore > topScore) {
             topScore = gameScore;
             topScoreGame = {
+              appId: g.appid,
               name: g.name,
               score: Math.round(gameScore * 10) / 10,
               iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
@@ -242,6 +315,7 @@ app.get('/api/friends/ranking', async (req, res) => {
 
           if (recentHours > 0 && (!topRecentGame || recentHours > topRecentGame.recentHours)) {
             topRecentGame = {
+              appId: g.appid,
               name: g.name,
               recentHours: Math.round(recentHours * 10) / 10,
               iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
@@ -281,7 +355,7 @@ app.get('/api/friends/ranking', async (req, res) => {
 // ウィッシュリストを取得するエンドポイント
 app.get('/api/wishlist', async (req, res) => {
   try {
-    const url = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${STEAM_ID}`;
+    const url = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${getSteamId(req)}`;
     const response = await fetch(url);
     const data = await response.json();
 
@@ -301,7 +375,7 @@ app.get('/api/wishlist', async (req, res) => {
 // ウィッシュリストの価格・セール情報を取得するエンドポイント
 app.get('/api/wishlist/prices', async (req, res) => {
   try {
-    const wishlistUrl = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${STEAM_ID}`;
+    const wishlistUrl = `https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid=${getSteamId(req)}`;
     const wishlistResponse = await fetch(wishlistUrl);
     const wishlistData = await wishlistResponse.json();
 
