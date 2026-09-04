@@ -299,7 +299,30 @@ h1 {
 .share-preview-stats {
   color: #66c0f4;
   font-size: 13px;
+  margin: 0 0 6px;
+}
+
+.share-preview-rank {
+  color: #ffd700;
+  font-size: 13px;
+  font-weight: bold;
   margin: 0 0 10px;
+}
+
+.share-preview-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.share-badge {
+  background-color: #2a475e;
+  border: 1px solid #66c0f4;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #c7d5e0;
 }
 
 .share-preview-top3 {

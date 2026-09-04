@@ -101,6 +101,8 @@ function App() {
   };
 
   const visibleGames = games.filter(g => !hiddenAppIds.includes(g.appId));
+  const validFriends = friendRanking.filter(f => !f.error);
+  const onSaleItems = wishlistItems.filter(item => item.discountPercent > 0);
 
   // 共有用データはvisibleGamesのみから作成(SteamIDやAPIキーなど個人特定情報は一切含めない)
   const shareTop3 = [...visibleGames]
@@ -108,16 +110,73 @@ function App() {
     .sort((a, b) => b.playtimeHours - a.playtimeHours)
     .slice(0, 3);
 
+  // フレンドとの合計プレイ時間比較(自分を含めた全員を降順に並べて順位・差分を出す)
+  const playtimeRankAll = [...validFriends]
+    .filter(f => f.totalPlaytimeHours != null)
+    .sort((a, b) => b.totalPlaytimeHours - a.totalPlaytimeHours);
+
+  const myRankIndex = playtimeRankAll.findIndex(f => f.displayName === 'あなた');
+  const myPlaytimeRank = myRankIndex >= 0 ? myRankIndex + 1 : null;
+
+  let rankDiffText = null;
+  if (myRankIndex === 0 && playtimeRankAll.length > 1) {
+    const diff = Math.round((playtimeRankAll[0].totalPlaytimeHours - playtimeRankAll[1].totalPlaytimeHours) * 10) / 10;
+    rankDiffText = `フレンド内1位!2位との差 ${diff}時間`;
+  } else if (myRankIndex > 0) {
+    const diff = Math.round((playtimeRankAll[0].totalPlaytimeHours - playtimeRankAll[myRankIndex].totalPlaytimeHours) * 10) / 10;
+    rankDiffText = `フレンド内${myPlaytimeRank}位(1位との差 ${diff}時間)`;
+  }
+
+  // 自虐ネタ称号の判定(最大3つ)
+  const badgeCandidates = [];
+  const totalGamesCount = visibleGames.length;
+  const totalPlaytimeAll = visibleGames.reduce((s, g) => s + g.playtimeHours, 0);
+  const unplayedCountForBadge = visibleGames.filter(g => g.playtimeHours === 0).length;
+
+  if (totalGamesCount > 0 && unplayedCountForBadge >= 20) {
+    badgeCandidates.push('📦 積みゲー王');
+  }
+  if (totalGamesCount > 0 && unplayedCountForBadge / totalGamesCount >= 0.5) {
+    badgeCandidates.push('🗂️ 積みゲーコレクター');
+  }
+  if (totalGamesCount >= 10 && totalPlaytimeAll / totalGamesCount < 5) {
+    badgeCandidates.push('🦋 浮気性プレイヤー');
+  }
+  if (shareTop3.length > 0 && totalPlaytimeAll > 0 && (shareTop3[0].playtimeHours / totalPlaytimeAll) >= 0.5) {
+    badgeCandidates.push('🎯 一点集中型');
+  }
+  const achievementRates = visibleGames
+    .map(g => achievements[g.appId])
+    .filter(a => a && a.hasAchievements && a.totalCount > 0)
+    .map(a => a.unlockRate);
+  const avgAchievementRate = achievementRates.length > 0
+    ? achievementRates.reduce((s, r) => s + r, 0) / achievementRates.length
+    : null;
+  if (avgAchievementRate !== null && avgAchievementRate < 20) {
+    badgeCandidates.push('🏳️ 実績投げ出しマン');
+  }
+  if (onSaleItems.length >= 3) {
+    badgeCandidates.push('🛒 セール戦士(まだ買ってない)');
+  }
+
+  const myBadges = badgeCandidates.slice(0, 3);
+
   const generateShareText = () => {
     const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
     const lines = [
       `🎮 ${name}のSteamライブラリ`,
       `所持ゲーム数: ${visibleGames.length}本`,
       `総プレイ時間: ${Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間`,
-      '',
-      '【プレイ時間TOP3】',
-      ...shareTop3.map((g, i) => `${i + 1}位 ${g.name} (${g.playtimeHours}h)`)
     ];
+    if (rankDiffText) {
+      lines.push(rankDiffText);
+    }
+    if (myBadges.length > 0) {
+      lines.push(`称号: ${myBadges.join(' / ')}`);
+    }
+    lines.push('');
+    lines.push('【プレイ時間TOP3】');
+    lines.push(...shareTop3.map((g, i) => `${i + 1}位 ${g.name} (${g.playtimeHours}h)`));
     return lines.join('\n');
   };
 
@@ -152,22 +211,37 @@ function App() {
     const total = Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0));
     ctx.fillText(`所持ゲーム数: ${visibleGames.length}本  /  総プレイ時間: ${total}時間`, 40, 110);
 
-    // 区切り線
+    let extraLineOffset = 0;
+    if (rankDiffText) {
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.fillText(`🔥 ${rankDiffText}`, 40, 140);
+      extraLineOffset += 25;
+    }
+    if (myBadges.length > 0) {
+      ctx.fillStyle = '#c7d5e0';
+      ctx.font = '16px sans-serif';
+      ctx.fillText(`称号: ${myBadges.join(' / ')}`, 40, 140 + extraLineOffset);
+      extraLineOffset += 25;
+    }
+
+    // 区切り線(順位・称号表示がある場合は少し下にずらす)
+    const lineY = 140 + extraLineOffset + (extraLineOffset > 0 ? 25 : 0);
     ctx.strokeStyle = '#3a5a75';
     ctx.beginPath();
-    ctx.moveTo(40, 140);
-    ctx.lineTo(760, 140);
+    ctx.moveTo(40, lineY);
+    ctx.lineTo(760, lineY);
     ctx.stroke();
 
     // TOP3見出し
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('🏆 プレイ時間 TOP3', 40, 190);
+    ctx.fillText('🏆 プレイ時間 TOP3', 40, lineY + 50);
 
     // TOP3リスト
     const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
     shareTop3.forEach((g, i) => {
-      const y = 240 + i * 70;
+      const y = lineY + 100 + i * 70;
       ctx.fillStyle = medalColors[i] || '#66c0f4';
       ctx.font = 'bold 28px sans-serif';
       ctx.fillText(`${i + 1}`, 40, y);
@@ -261,8 +335,6 @@ function App() {
 
   const showRanking = !search && sortBy === 'playtime-desc';
 
-  const validFriends = friendRanking.filter(f => !f.error);
-
   const friendTotalPlaytimeRanking = [...validFriends]
     .filter(f => f.totalPlaytimeHours > 0)
     .sort((a, b) => b.totalPlaytimeHours - a.totalPlaytimeHours)
@@ -282,9 +354,6 @@ function App() {
     .filter(f => f.topRecentGame)
     .sort((a, b) => b.topRecentGame.recentHours - a.topRecentGame.recentHours)
     .slice(0, 10);
-
-  // セール中のウィッシュリストアイテム(割引率が0より大きいもの)
-  const onSaleItems = wishlistItems.filter(item => item.discountPercent > 0);
 
   return (
     <div className="container">
@@ -387,6 +456,16 @@ function App() {
               <p className="share-preview-stats">
                 所持ゲーム数: {visibleGames.length}本 / 総プレイ時間: {Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間
               </p>
+              {rankDiffText && (
+                <p className="share-preview-rank">🔥 {rankDiffText}</p>
+              )}
+              {myBadges.length > 0 && (
+                <div className="share-preview-badges">
+                  {myBadges.map(badge => (
+                    <span key={badge} className="share-badge">{badge}</span>
+                  ))}
+                </div>
+              )}
               <div className="share-preview-top3">
                 {shareTop3.map((g, i) => (
                   <span key={g.appId} className="share-preview-item">
