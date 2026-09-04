@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
 const session = require('express-session');
 const passport = require('passport');
@@ -12,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 app.set('trust proxy', 1);
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
-const DEFAULT_STEAM_ID = process.env.STEAM_ID; // 未ログイン時のフォールバック(あなた自身)
+const DEFAULT_STEAM_ID = process.env.STEAM_ID; // 未ログイン時のフォールバック(あなた自身、ローカル開発用)
 const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
 const JWT_SECRET = process.env.SESSION_SECRET || 'steam-dashboard-dev-secret';
 
@@ -26,10 +25,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(cookieParser());
-
 // express-sessionはSteamログインの一連の手続き(OpenIDの検証)中だけ使う一時的なもので、
-// ログイン後の「誰がログインしているか」の判定には使わない(そちらはJWT Cookieで行う)
+// ログイン後の「誰がログインしているか」の判定には使わない(そちらはAuthorizationヘッダーのトークンで行う)
 app.use(session({
   secret: JWT_SECRET,
   resave: false,
@@ -60,21 +57,11 @@ passport.use(new SteamStrategy({
   });
 }));
 
-const AUTH_COOKIE_NAME = 'auth_token';
-
-function setAuthCookie(res, user) {
-  const token = jwt.sign(user, JWT_SECRET, { expiresIn: '7d' });
-  res.cookie(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    secure: IS_HTTPS,
-    sameSite: IS_HTTPS ? 'none' : 'lax'
-  });
-}
-
-// リクエストの署名付きCookieから、ログイン中のユーザー情報を取り出す(なければnull)
+// リクエストの Authorization: Bearer <token> ヘッダーから、ログイン中のユーザー情報を取り出す(なければnull)
+// Cookieを一切使わないため、スマホのSafariなどのサードパーティCookie制限の影響を受けない
 function getAuthUser(req) {
-  const token = req.cookies && req.cookies[AUTH_COOKIE_NAME];
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -85,7 +72,7 @@ function getAuthUser(req) {
 }
 
 // リクエストごとに「今どのSteamIDを見るべきか」を解決するヘルパー
-// ログイン済みならそのユーザーのSteamID、未ログインなら.envのデフォルト(あなた自身)を返す
+// ログイン済みならそのユーザーのSteamID、未ログインなら.envのデフォルト(あなた自身、ローカル開発用のフォールバック)
 function getSteamId(req) {
   const user = getAuthUser(req);
   return user ? user.steamId : DEFAULT_STEAM_ID;
@@ -98,28 +85,19 @@ app.get('/', (req, res) => {
 // Steamログイン開始
 app.get('/auth/steam', passport.authenticate('steam'));
 
-// Steamからのコールバック:ログイン手続き成功後、JWT Cookieを発行してセッション自体は破棄する
+// Steamからのコールバック:ログイン手続き成功後、トークンをURLパラメータでフロントエンドに渡す
+// (Cookieでの受け渡しはスマホのSafari等でブロックされるため、URLパラメータ経由にしている)
 app.get('/auth/steam/return',
   passport.authenticate('steam', { failureRedirect: '/', session: false }),
   (req, res) => {
-    setAuthCookie(res, req.user);
+    const token = jwt.sign(req.user, JWT_SECRET, { expiresIn: '7d' });
     // OpenID手続き用の一時セッションはもう不要なので破棄しておく
     if (req.session) req.session.destroy(() => {});
-    res.redirect(FRONTEND_URL + '/');
+    res.redirect(`${FRONTEND_URL}/?token=${encodeURIComponent(token)}`);
   }
 );
 
-// ログアウト:JWT Cookieを削除するだけ(サーバー側に状態は残らない)
-app.get('/auth/logout', (req, res) => {
-  res.clearCookie(AUTH_COOKIE_NAME, {
-    httpOnly: true,
-    secure: IS_HTTPS,
-    sameSite: IS_HTTPS ? 'none' : 'lax'
-  });
-  res.redirect(FRONTEND_URL + '/');
-});
-
-// 今ログインしているユーザー情報(未ログインならnull)
+// 今ログインしているユーザー情報(未ログインならnull)。フロントエンドがAuthorizationヘッダーでトークンを送ってくる想定
 app.get('/auth/user', (req, res) => {
   const user = getAuthUser(req);
   if (user) {

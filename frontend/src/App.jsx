@@ -35,6 +35,13 @@ function App() {
   const [copyStatus, setCopyStatus] = useState(null);
   const [authUser, setAuthUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [authToken, setAuthToken] = useState(() => {
+    try {
+      return localStorage.getItem('authToken') || null;
+    } catch {
+      return null;
+    }
+  });
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem('theme') || 'dark';
@@ -64,8 +71,40 @@ function App() {
     } catch {}
   }, [viewMode]);
 
+  // Steamログイン後、URLの ?token=... を受け取ってlocalStorageに保存し、URLからは消す
+  // (Cookieを使わないので、スマホのSafari等のサードパーティCookie制限を受けない)
   useEffect(() => {
-    fetch(`${API_BASE}/auth/user`, { credentials: 'include' })
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromUrl = params.get('token');
+    if (tokenFromUrl) {
+      try {
+        localStorage.setItem('authToken', tokenFromUrl);
+      } catch {}
+      setAuthToken(tokenFromUrl);
+      params.delete('token');
+      const newSearch = params.toString();
+      const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('authToken');
+    } catch {}
+    setAuthToken(null);
+    setAuthUser(null);
+  };
+
+  useEffect(() => {
+    if (!authToken) {
+      setAuthUser(null);
+      setAuthChecked(true);
+      return;
+    }
+    fetch(`${API_BASE}/auth/user`, {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
       .then(res => res.json())
       .then(data => {
         setAuthUser(data.loggedIn ? data.user : null);
@@ -75,13 +114,15 @@ function App() {
         console.error(err);
         setAuthChecked(true);
       });
-  }, []);
+  }, [authToken]);
 
   useEffect(() => {
     // ログインが確認できるまで、または未ログインならデータ取得しない
-    if (!authChecked || !authUser) return;
+    if (!authChecked || !authUser || !authToken) return;
 
-    fetch(`${API_BASE}/api/games`, { credentials: 'include' })
+    const authHeaders = { Authorization: `Bearer ${authToken}` };
+
+    fetch(`${API_BASE}/api/games`, { headers: authHeaders })
       .then(res => res.json())
       .then(data => {
         const filtered = data.games.filter(g => !EXCLUDED_APP_IDS.includes(g.appId));
@@ -93,7 +134,7 @@ function App() {
         setLoading(false);
       });
 
-    fetch(`${API_BASE}/api/profile`, { credentials: 'include' })
+    fetch(`${API_BASE}/api/profile`, { headers: authHeaders })
       .then(res => res.json())
       .then(data => setProfile(data))
       .catch(err => console.error(err));
@@ -111,7 +152,7 @@ function App() {
       }
     } catch {}
 
-    fetch(`${API_BASE}/api/achievements/summary/all`, { credentials: 'include' })
+    fetch(`${API_BASE}/api/achievements/summary/all`, { headers: authHeaders })
       .then(res => res.json())
       .then(data => {
         const achMap = {};
@@ -141,7 +182,7 @@ function App() {
       }
     } catch {}
 
-    fetch(`${API_BASE}/api/friends/ranking`, { credentials: 'include' })
+    fetch(`${API_BASE}/api/friends/ranking`, { headers: authHeaders })
       .then(res => res.json())
       .then(data => {
         const ranking = data.ranking || [];
@@ -156,7 +197,7 @@ function App() {
         if (!usedFriendCache) setFriendRankingLoading(false);
       });
 
-    fetch(`${API_BASE}/api/wishlist/prices`, { credentials: 'include' })
+    fetch(`${API_BASE}/api/wishlist/prices`, { headers: authHeaders })
       .then(res => res.json())
       .then(data => {
         setWishlistItems(data.items || []);
@@ -166,7 +207,7 @@ function App() {
         console.error(err);
         setWishlistLoading(false);
       });
-  }, [authChecked, authUser]);
+  }, [authChecked, authUser, authToken]);
 
   // 認証チェック中はローディング表示
   if (!authChecked) {
@@ -584,9 +625,9 @@ function App() {
               authUser ? (
                 <>
                   <span className="auth-status">{authUser.displayName}としてログイン中</span>
-                  <a className="theme-toggle" href={`${API_BASE}/auth/logout`}>
+                  <button className="theme-toggle" onClick={handleLogout}>
                     ログアウト
-                  </a>
+                  </button>
                 </>
               ) : (
                 <a className="theme-toggle steam-login-btn" href={`${API_BASE}/auth/steam`}>
