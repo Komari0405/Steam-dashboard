@@ -6,14 +6,19 @@ const passport = require('passport');
 const SteamStrategy = require('passport-steam').Strategy;
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+app.set('trust proxy', 1);
 
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
 const DEFAULT_STEAM_ID = process.env.STEAM_ID; // 未ログイン時のフォールバック(あなた自身)
 const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
 
+// 本番では環境変数で上書き、未設定ならローカル開発用のURLを使う
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: FRONTEND_URL,
   credentials: true
 }));
 
@@ -22,7 +27,9 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7日間
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7日間
+    secure: BACKEND_URL.startsWith('https'), // 本番(https)ではsecure cookieを使う
+    sameSite: BACKEND_URL.startsWith('https') ? 'none' : 'lax'
   }
 }));
 
@@ -33,8 +40,8 @@ passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
 passport.use(new SteamStrategy({
-  returnURL: 'http://localhost:3000/auth/steam/return',
-  realm: 'http://localhost:3000/',
+  returnURL: `${BACKEND_URL}/auth/steam/return`,
+  realm: `${BACKEND_URL}/`,
   apiKey: STEAM_API_KEY
 }, (identifier, profile, done) => {
   // profile.id が64bitのSteamID
@@ -65,14 +72,14 @@ app.get('/auth/steam', passport.authenticate('steam'));
 app.get('/auth/steam/return',
   passport.authenticate('steam', { failureRedirect: '/' }),
   (req, res) => {
-    res.redirect('http://localhost:5173/');
+    res.redirect(FRONTEND_URL + '/');
   }
 );
 
 // ログアウト
 app.get('/auth/logout', (req, res) => {
   req.logout(() => {
-    res.redirect('http://localhost:5173/');
+    res.redirect(FRONTEND_URL + '/');
   });
 });
 

@@ -3,6 +3,9 @@ import './App.css';
 
 const EXCLUDED_APP_IDS = [993090]; // Lossless Scaling
 
+// 本番ではVercel等の環境変数VITE_API_URLを設定、未設定ならローカル開発用URLを使う
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function App() {
   const [games, setGames] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -48,7 +51,7 @@ function App() {
   }, [theme]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/auth/user', { credentials: 'include' })
+    fetch(`${API_BASE}/auth/user`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setAuthUser(data.loggedIn ? data.user : null);
@@ -61,7 +64,7 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/games', { credentials: 'include' })
+    fetch(`${API_BASE}/api/games`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const filtered = data.games.filter(g => !EXCLUDED_APP_IDS.includes(g.appId));
@@ -73,7 +76,7 @@ function App() {
         setLoading(false);
       });
 
-    fetch('http://localhost:3000/api/profile', { credentials: 'include' })
+    fetch(`${API_BASE}/api/profile`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => setProfile(data))
       .catch(err => console.error(err));
@@ -91,7 +94,7 @@ function App() {
       }
     } catch {}
 
-    fetch('http://localhost:3000/api/achievements/summary/all', { credentials: 'include' })
+    fetch(`${API_BASE}/api/achievements/summary/all`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const achMap = {};
@@ -121,7 +124,7 @@ function App() {
       }
     } catch {}
 
-    fetch('http://localhost:3000/api/friends/ranking', { credentials: 'include' })
+    fetch(`${API_BASE}/api/friends/ranking`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         const ranking = data.ranking || [];
@@ -136,7 +139,7 @@ function App() {
         if (!usedFriendCache) setFriendRankingLoading(false);
       });
 
-    fetch('http://localhost:3000/api/wishlist/prices', { credentials: 'include' })
+    fetch(`${API_BASE}/api/wishlist/prices`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
         setWishlistItems(data.items || []);
@@ -531,12 +534,12 @@ function App() {
               authUser ? (
                 <>
                   <span className="auth-status">{authUser.displayName}としてログイン中</span>
-                  <a className="theme-toggle" href="http://localhost:3000/auth/logout">
+                  <a className="theme-toggle" href={`${API_BASE}/auth/logout`}>
                     ログアウト
                   </a>
                 </>
               ) : (
-                <a className="theme-toggle steam-login-btn" href="http://localhost:3000/auth/steam">
+                <a className="theme-toggle steam-login-btn" href={`${API_BASE}/auth/steam`}>
                   Steamでログイン
                 </a>
               )
