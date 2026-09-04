@@ -133,16 +133,16 @@ function App() {
   const totalPlaytimeAll = visibleGames.reduce((s, g) => s + g.playtimeHours, 0);
   const unplayedCountForBadge = visibleGames.filter(g => g.playtimeHours === 0).length;
 
-  if (totalGamesCount > 0 && unplayedCountForBadge >= 20) {
+  if (totalGamesCount > 0 && unplayedCountForBadge >= 10) {
     badgeCandidates.push('📦 積みゲー王');
   }
-  if (totalGamesCount > 0 && unplayedCountForBadge / totalGamesCount >= 0.5) {
+  if (totalGamesCount > 0 && unplayedCountForBadge / totalGamesCount >= 0.15) {
     badgeCandidates.push('🗂️ 積みゲーコレクター');
   }
-  if (totalGamesCount >= 10 && totalPlaytimeAll / totalGamesCount < 5) {
+  if (totalGamesCount >= 10 && totalPlaytimeAll / totalGamesCount < 15) {
     badgeCandidates.push('🦋 浮気性プレイヤー');
   }
-  if (shareTop3.length > 0 && totalPlaytimeAll > 0 && (shareTop3[0].playtimeHours / totalPlaytimeAll) >= 0.5) {
+  if (shareTop3.length > 0 && totalPlaytimeAll > 0 && (shareTop3[0].playtimeHours / totalPlaytimeAll) >= 0.25) {
     badgeCandidates.push('🎯 一点集中型');
   }
   const achievementRates = visibleGames
@@ -152,11 +152,14 @@ function App() {
   const avgAchievementRate = achievementRates.length > 0
     ? achievementRates.reduce((s, r) => s + r, 0) / achievementRates.length
     : null;
-  if (avgAchievementRate !== null && avgAchievementRate < 20) {
+  if (avgAchievementRate !== null && avgAchievementRate < 40) {
     badgeCandidates.push('🏳️ 実績投げ出しマン');
   }
-  if (onSaleItems.length >= 3) {
+  if (onSaleItems.length >= 1) {
     badgeCandidates.push('🛒 セール戦士(まだ買ってない)');
+  }
+  if (totalGamesCount >= 50) {
+    badgeCandidates.push('🛍️ コレクター気質');
   }
 
   const myBadges = badgeCandidates.slice(0, 3);
@@ -364,6 +367,13 @@ function App() {
             <div className="profile-text">
               <span className="profile-name">{profile.displayName}</span>
               <span className="profile-sub">Steam ライブラリダッシュボード</span>
+              {myBadges.length > 0 && (
+                <div className="home-badges">
+                  {myBadges.map(badge => (
+                    <span key={badge} className="share-badge">{badge}</span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -325,6 +325,13 @@ h1 {
   color: #c7d5e0;
 }
 
+.home-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
 .share-preview-top3 {
   display: flex;
   flex-direction: column;
