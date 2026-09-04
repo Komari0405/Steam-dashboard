@@ -18,6 +18,16 @@ function App() {
   const [friendRankingLoading, setFriendRankingLoading] = useState(true);
   const [wishlistItems, setWishlistItems] = useState([]);
   const [wishlistLoading, setWishlistLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('mine'); // 'mine' or 'friends'
+  const [hiddenAppIds, setHiddenAppIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hiddenAppIds');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [showHiddenManager, setShowHiddenManager] = useState(false);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/games')
@@ -77,7 +87,21 @@ function App() {
 
   if (loading) return <p className="loading">読み込み中...</p>;
 
-  const filteredGames = games
+  const toggleHidden = (appId) => {
+    setHiddenAppIds(prev => {
+      const next = prev.includes(appId)
+        ? prev.filter(id => id !== appId)
+        : [...prev, appId];
+      try {
+        localStorage.setItem('hiddenAppIds', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const visibleGames = games.filter(g => !hiddenAppIds.includes(g.appId));
+
+  const filteredGames = visibleGames
     .filter(game => showUnplayed || game.playtimeHours > 0)
     .filter(game => game.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
@@ -95,11 +119,11 @@ function App() {
       }
     });
 
-  const totalHours = games.reduce((sum, g) => sum + g.playtimeHours, 0);
-  const unplayedCount = games.filter(g => g.playtimeHours === 0).length;
-  const unplayedGames = games.filter(g => g.playtimeHours === 0);
+  const totalHours = visibleGames.reduce((sum, g) => sum + g.playtimeHours, 0);
+  const unplayedCount = visibleGames.filter(g => g.playtimeHours === 0).length;
+  const unplayedGames = visibleGames.filter(g => g.playtimeHours === 0);
 
-  const recentTop3 = [...games]
+  const recentTop3 = [...visibleGames]
     .filter(g => g.playtimeRecentHours > 0)
     .sort((a, b) => b.playtimeRecentHours - a.playtimeRecentHours)
     .slice(0, 3);
@@ -116,7 +140,7 @@ function App() {
     }, 1200);
   };
 
-  const top10 = [...games]
+  const top10 = [...visibleGames]
     .filter(game => game.playtimeHours > 0)
     .sort((a, b) => b.playtimeHours - a.playtimeHours)
     .slice(0, 10);
@@ -132,7 +156,7 @@ function App() {
     return Math.round(totalScore * 10) / 10;
   };
 
-  const scoreRanking = [...games]
+  const scoreRanking = [...visibleGames]
     .filter(game => game.playtimeHours > 0)
     .map(game => ({
       ...game,
@@ -167,7 +191,6 @@ function App() {
 
   // セール中のウィッシュリストアイテム(割引率が0より大きいもの)
   const onSaleItems = wishlistItems.filter(item => item.discountPercent > 0);
-  const otherWishlistItems = wishlistItems.filter(item => item.discountPercent === 0);
 
   return (
     <div className="container">
@@ -184,7 +207,7 @@ function App() {
         <h1>🎮 Steam ライブラリ</h1>
         <div className="stats">
           <div className="stat-card">
-            <span className="stat-number">{games.length}</span>
+            <span className="stat-number">{visibleGames.length}</span>
             <span className="stat-label">所持ゲーム数</span>
           </div>
           <div className="stat-card">
@@ -197,312 +220,368 @@ function App() {
         )}
       </header>
 
-      {recentTop3.length > 0 && (
-        <div className="recent-section">
-          <h2>🔥 最近よくプレイしているゲーム</h2>
-          <div className="recent-grid">
-            {recentTop3.map(game => (
-              <div key={game.appId} className="recent-card">
-                <img
-                  src={game.iconUrl}
-                  alt={game.name}
-                  className="recent-icon"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <p className="recent-name">{game.name}</p>
-                <p className="recent-hours">直近2週間で{game.playtimeRecentHours}h</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!wishlistLoading && onSaleItems.length > 0 && (
-        <div className="sale-section">
-          <h2>🔥 ウィッシュリストのセール情報({onSaleItems.length}件)</h2>
-          <p className="ranking-description">
-            ウィッシュリストに入っているゲームで、現在セール中のものです。
-          </p>
-          <div className="sale-grid">
-            {onSaleItems.map(item => (
-              <div key={item.appId} className="sale-card">
-                <img
-                  src={item.iconUrl}
-                  alt={item.name}
-                  className="sale-icon"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <div className="sale-info">
-                  <p className="sale-name">{item.name}</p>
-                  <div className="sale-price-row">
-                    <span className="sale-discount">-{item.discountPercent}%</span>
-                    <span className="sale-original-price">¥{item.originalPrice.toLocaleString()}</span>
-                    <span className="sale-current-price">¥{item.currentPrice.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!wishlistLoading && onSaleItems.length === 0 && wishlistItems.length > 0 && (
-        <p className="achievements-status">現在セール中のウィッシュリスト商品はありません。</p>
-      )}
-
-      {wishlistLoading && (
-        <p className="achievements-status">ウィッシュリストのセール情報を確認中...</p>
-      )}
-
-      <div className="controls">
-        <input
-          type="text"
-          placeholder="ゲームを検索..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search-box"
-        />
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="sort-select"
-        >
-          <option value="playtime-desc">プレイ時間が多い順</option>
-          <option value="playtime-asc">プレイ時間が少ない順</option>
-          <option value="name-asc">名前順(A→Z)</option>
-          <option value="name-desc">名前順(Z→A)</option>
-        </select>
+      <div className="hidden-manager-toggle">
         <button
-          className={`toggle-btn ${showUnplayed ? 'active' : ''}`}
-          onClick={() => setShowUnplayed(!showUnplayed)}
+          className="hidden-manager-btn"
+          onClick={() => setShowHiddenManager(!showHiddenManager)}
         >
-          未プレイ({unplayedCount})を{showUnplayed ? '隠す' : '表示'}
+          🙈 非表示ゲーム管理{hiddenAppIds.length > 0 ? `(${hiddenAppIds.length}件非表示中)` : ''}
         </button>
       </div>
 
-      {showRanking && (
-        <div className="ranking-section">
-          <h2>🏆 プレイ時間 TOP10</h2>
-          <div className="ranking-list">
-            {top10.map((game, index) => (
-              <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
-                <span className="rank-number">{index + 1}</span>
-                <img
-                  src={game.iconUrl}
-                  alt={game.name}
-                  className="game-icon"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <div className="game-info">
-                  <p className="game-name">{game.name}</p>
-                </div>
-                <p className="game-time">{game.playtimeHours}h</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {showRanking && (
-        <div className="ranking-section">
-          <h2>⭐ 総合スコアランキング(β版)</h2>
+      {showHiddenManager && (
+        <div className="hidden-manager-panel">
           <p className="ranking-description">
-            プレイ時間と実績解除率をもとに算出したスコアのランキングです。長く遊んでいるだけでなく、実績もしっかり解除しているゲームほど上位に来ます。
+            チェックを入れたゲームは、一覧・ランキング・積みゲーなど全ての表示から除外されます(設定はこのブラウザに保存されます)。
           </p>
-          <div className="ranking-list">
-            {scoreRanking.map((game, index) => (
-              <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
-                <span className="rank-number">{index + 1}</span>
+          <div className="hidden-manager-list">
+            {games.map(game => (
+              <label key={game.appId} className="hidden-manager-item">
+                <input
+                  type="checkbox"
+                  checked={hiddenAppIds.includes(game.appId)}
+                  onChange={() => toggleHidden(game.appId)}
+                />
                 <img
                   src={game.iconUrl}
                   alt={game.name}
-                  className="game-icon"
+                  className="hidden-manager-icon"
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
-                <div className="game-info">
-                  <p className="game-name">{game.name}</p>
-                </div>
-                <p className="game-time">スコア {game.score}</p>
-              </div>
+                <span className="hidden-manager-name">{game.name}</span>
+              </label>
             ))}
           </div>
         </div>
       )}
 
-      {unplayedGames.length > 0 && (
-        <div className="unplayed-section">
-          <h2>📦 積みゲー一覧({unplayedGames.length}本)</h2>
-          <p className="ranking-description">
-            買ったままプレイできていないゲームです。気分転換に何か1本始めてみませんか?
-          </p>
-
-          <div className="gacha-box">
-            <button
-              className="gacha-btn"
-              onClick={spinGacha}
-              disabled={isSpinning}
-            >
-              {isSpinning ? '抽選中...' : '🎰 積みゲーガチャを回す'}
-            </button>
-            {gachaResult && !isSpinning && (
-              <div className="gacha-result">
-                <img src={gachaResult.iconUrl} alt={gachaResult.name} className="gacha-icon" />
-                <p className="gacha-label">今日はこれをプレイ!</p>
-                <p className="gacha-game-name">{gachaResult.name}</p>
-              </div>
-            )}
-          </div>
-
-          <div className="game-grid">
-            {unplayedGames.map(game => (
-              <div key={game.appId} className="game-card unplayed-card">
-                <img
-                  src={game.iconUrl}
-                  alt={game.name}
-                  className="game-icon"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-                <div className="game-info">
-                  <p className="game-name">{game.name}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="friend-ranking-block">
-        <h2 className="friend-ranking-title">👥 フレンドランキング</h2>
-        <p className="ranking-note">※ Lossless Scalingはランキングから除外しています</p>
-        {friendRankingLoading && (
-          <p className="achievements-status">フレンドのデータを取得中...(少し時間がかかります)</p>
-        )}
-
-        {!friendRankingLoading && (
-          <>
-            <div className="ranking-section">
-              <h3>合計プレイ時間ランキング</h3>
-              <p className="ranking-description">
-                所持ゲーム全体の合計プレイ時間で比較したフレンドランキングです。
-              </p>
-              <div className="ranking-list">
-                {friendTotalPlaytimeRanking.map((friend, index) => (
-                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
-                    <span className="rank-number">{index + 1}</span>
-                    {friend.avatarUrl && (
-                      <img
-                      src={friend.avatarUrl}
-                      alt={friend.displayName}
-                      className="game-icon friend-avatar"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    )}
-                    <div className="game-info">
-                      <p className="game-name">{friend.displayName}</p>
-                    </div>
-                    <p className="game-time">{friend.totalPlaytimeHours}h</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="ranking-section">
-              <h3>一番遊んでるゲーム ランキング</h3>
-              <p className="ranking-description">
-                それぞれのフレンドが一番長くプレイしているゲームのプレイ時間で比較したランキングです。
-              </p>
-              <div className="ranking-list">
-                {friendTopGameRanking.map((friend, index) => (
-                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
-                    <span className="rank-number">{index + 1}</span>
-                    <img
-                      src={friend.topGame.iconUrl}
-                      alt={friend.topGame.name}
-                      className="game-icon"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <div className="game-info">
-                      <p className="game-name">{friend.displayName} - {friend.topGame.name}</p>
-                    </div>
-                    <p className="game-time">{friend.topGame.playtimeHours}h</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="ranking-section">
-              <h3>一番スコアが高いゲーム ランキング</h3>
-              <p className="ranking-description">
-                それぞれのフレンドが持つゲームの中で、一番スコアが高い1本同士で比較したランキングです。
-              </p>
-              <div className="ranking-list">
-                {friendTopScoreRanking.map((friend, index) => (
-                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
-                    <span className="rank-number">{index + 1}</span>
-                    <img
-                      src={friend.topScoreGame.iconUrl}
-                      alt={friend.topScoreGame.name}
-                      className="game-icon"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <div className="game-info">
-                      <p className="game-name">{friend.displayName} - {friend.topScoreGame.name}</p>
-                    </div>
-                    <p className="game-time">スコア {friend.topScoreGame.score}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="ranking-section">
-              <h3>直近でよく遊んでいるゲーム ランキング</h3>
-              <p className="ranking-description">
-                直近2週間のプレイ時間が長いゲームで比較したランキングです。今よく遊ばれているゲームが分かります。
-              </p>
-              <div className="ranking-list">
-                {friendTopRecentRanking.map((friend, index) => (
-                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
-                    <span className="rank-number">{index + 1}</span>
-                    <img
-                      src={friend.topRecentGame.iconUrl}
-                      alt={friend.topRecentGame.name}
-                      className="game-icon"
-                      onError={(e) => { e.target.style.display = 'none'; }}
-                    />
-                    <div className="game-info">
-                      <p className="game-name">{friend.displayName} - {friend.topRecentGame.name}</p>
-                    </div>
-                    <p className="game-time">{friend.topRecentGame.recentHours}h</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+      <div className="tab-bar">
+        <button
+          className={`tab-btn ${activeTab === 'mine' ? 'active' : ''}`}
+          onClick={() => setActiveTab('mine')}
+        >
+          マイライブラリ
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'friends' ? 'active' : ''}`}
+          onClick={() => setActiveTab('friends')}
+        >
+          フレンド
+        </button>
       </div>
 
-      <div className="game-grid">
-        {filteredGames.map(game => {
-          const ach = achievements[game.appId];
-          return (
-            <div key={game.appId} className="game-card">
-              <img
-                  src={game.iconUrl}
-                  alt={game.name}
-                  className="game-icon"
-                  onError={(e) => { e.target.style.display = 'none'; }}
-                />
-              <div className="game-info">
-                <p className="game-name">{game.name}</p>
-                {ach && ach.hasAchievements && (
-                  <p className="game-achievement">実績 {ach.unlockRate}%</p>
+      {activeTab === 'mine' && (
+        <>
+          {recentTop3.length > 0 && (
+            <div className="recent-section">
+              <h2>🔥 最近よくプレイしているゲーム</h2>
+              <div className="recent-grid">
+                {recentTop3.map(game => (
+                  <div key={game.appId} className="recent-card">
+                    <img
+                      src={game.iconUrl}
+                      alt={game.name}
+                      className="recent-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <p className="recent-name">{game.name}</p>
+                    <p className="recent-hours">直近2週間で{game.playtimeRecentHours}h</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!wishlistLoading && onSaleItems.length > 0 && (
+            <div className="sale-section">
+              <h2>🔥 ウィッシュリストのセール情報({onSaleItems.length}件)</h2>
+              <p className="ranking-description">
+                ウィッシュリストに入っているゲームで、現在セール中のものです。
+              </p>
+              <div className="sale-grid">
+                {onSaleItems.map(item => (
+                  <div key={item.appId} className="sale-card">
+                    <img
+                      src={item.iconUrl}
+                      alt={item.name}
+                      className="sale-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="sale-info">
+                      <p className="sale-name">{item.name}</p>
+                      <div className="sale-price-row">
+                        <span className="sale-discount">-{item.discountPercent}%</span>
+                        <span className="sale-original-price">¥{item.originalPrice.toLocaleString()}</span>
+                        <span className="sale-current-price">¥{item.currentPrice.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!wishlistLoading && onSaleItems.length === 0 && wishlistItems.length > 0 && (
+            <p className="achievements-status">現在セール中のウィッシュリスト商品はありません。</p>
+          )}
+
+          {wishlistLoading && (
+            <p className="achievements-status">ウィッシュリストのセール情報を確認中...</p>
+          )}
+
+          <div className="controls">
+            <input
+              type="text"
+              placeholder="ゲームを検索..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="search-box"
+            />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="sort-select"
+            >
+              <option value="playtime-desc">プレイ時間が多い順</option>
+              <option value="playtime-asc">プレイ時間が少ない順</option>
+              <option value="name-asc">名前順(A→Z)</option>
+              <option value="name-desc">名前順(Z→A)</option>
+            </select>
+            <button
+              className={`toggle-btn ${showUnplayed ? 'active' : ''}`}
+              onClick={() => setShowUnplayed(!showUnplayed)}
+            >
+              未プレイ({unplayedCount})を{showUnplayed ? '隠す' : '表示'}
+            </button>
+          </div>
+
+          {showRanking && (
+            <div className="ranking-section">
+              <h2>🏆 プレイ時間 TOP10</h2>
+              <div className="ranking-list">
+                {top10.map((game, index) => (
+                  <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    <img
+                      src={game.iconUrl}
+                      alt={game.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="game-info">
+                      <p className="game-name">{game.name}</p>
+                    </div>
+                    <p className="game-time">{game.playtimeHours}h</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showRanking && (
+            <div className="ranking-section">
+              <h2>⭐ 総合スコアランキング(β版)</h2>
+              <p className="ranking-description">
+                プレイ時間と実績解除率をもとに算出したスコアのランキングです。長く遊んでいるだけでなく、実績もしっかり解除しているゲームほど上位に来ます。
+              </p>
+              <div className="ranking-list">
+                {scoreRanking.map((game, index) => (
+                  <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    <img
+                      src={game.iconUrl}
+                      alt={game.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="game-info">
+                      <p className="game-name">{game.name}</p>
+                    </div>
+                    <p className="game-time">スコア {game.score}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {unplayedGames.length > 0 && (
+            <div className="unplayed-section">
+              <h2>📦 積みゲー一覧({unplayedGames.length}本)</h2>
+              <p className="ranking-description">
+                買ったままプレイできていないゲームです。気分転換に何か1本始めてみませんか?
+              </p>
+
+              <div className="gacha-box">
+                <button
+                  className="gacha-btn"
+                  onClick={spinGacha}
+                  disabled={isSpinning}
+                >
+                  {isSpinning ? '抽選中...' : '🎰 積みゲーガチャを回す'}
+                </button>
+                {gachaResult && !isSpinning && (
+                  <div className="gacha-result">
+                    <img src={gachaResult.iconUrl} alt={gachaResult.name} className="gacha-icon" />
+                    <p className="gacha-label">今日はこれをプレイ!</p>
+                    <p className="gacha-game-name">{gachaResult.name}</p>
+                  </div>
                 )}
               </div>
-              <p className="game-time">{game.playtimeHours}h</p>
+
+              <div className="game-grid">
+                {unplayedGames.map(game => (
+                  <div key={game.appId} className="game-card unplayed-card">
+                    <img
+                      src={game.iconUrl}
+                      alt={game.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="game-info">
+                      <p className="game-name">{game.name}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          );
-        })}
-      </div>
+          )}
+
+          <div className="game-grid">
+            {filteredGames.map(game => {
+              const ach = achievements[game.appId];
+              return (
+                <div key={game.appId} className="game-card">
+                  <img
+                    src={game.iconUrl}
+                    alt={game.name}
+                    className="game-icon"
+                    onError={(e) => { e.target.style.display = 'none'; }}
+                  />
+                  <div className="game-info">
+                    <p className="game-name">{game.name}</p>
+                    {ach && ach.hasAchievements && (
+                      <p className="game-achievement">実績 {ach.unlockRate}%</p>
+                    )}
+                  </div>
+                  <p className="game-time">{game.playtimeHours}h</p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {activeTab === 'friends' && (
+        <div className="friend-ranking-block">
+          <h2 className="friend-ranking-title">👥 フレンドランキング</h2>
+          <p className="ranking-note">※ Lossless Scalingはランキングから除外しています</p>
+          {friendRankingLoading && (
+            <p className="achievements-status">フレンドのデータを取得中...(少し時間がかかります)</p>
+          )}
+
+          {!friendRankingLoading && (
+            <>
+              <div className="ranking-section">
+                <h3>合計プレイ時間ランキング</h3>
+                <p className="ranking-description">
+                  所持ゲーム全体の合計プレイ時間で比較したフレンドランキングです。
+                </p>
+                <div className="ranking-list">
+                  {friendTotalPlaytimeRanking.map((friend, index) => (
+                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                      <span className="rank-number">{index + 1}</span>
+                      {friend.avatarUrl && (
+                        <img
+                          src={friend.avatarUrl}
+                          alt={friend.displayName}
+                          className="game-icon friend-avatar"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      )}
+                      <div className="game-info">
+                        <p className="game-name">{friend.displayName}</p>
+                      </div>
+                      <p className="game-time">{friend.totalPlaytimeHours}h</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ranking-section">
+                <h3>一番遊んでるゲーム ランキング</h3>
+                <p className="ranking-description">
+                  それぞれのフレンドが一番長くプレイしているゲームのプレイ時間で比較したランキングです。
+                </p>
+                <div className="ranking-list">
+                  {friendTopGameRanking.map((friend, index) => (
+                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                      <span className="rank-number">{index + 1}</span>
+                      <img
+                        src={friend.topGame.iconUrl}
+                        alt={friend.topGame.name}
+                        className="game-icon"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="game-info">
+                        <p className="game-name">{friend.displayName} - {friend.topGame.name}</p>
+                      </div>
+                      <p className="game-time">{friend.topGame.playtimeHours}h</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ranking-section">
+                <h3>一番スコアが高いゲーム ランキング</h3>
+                <p className="ranking-description">
+                  それぞれのフレンドが持つゲームの中で、一番スコアが高い1本同士で比較したランキングです。
+                </p>
+                <div className="ranking-list">
+                  {friendTopScoreRanking.map((friend, index) => (
+                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                      <span className="rank-number">{index + 1}</span>
+                      <img
+                        src={friend.topScoreGame.iconUrl}
+                        alt={friend.topScoreGame.name}
+                        className="game-icon"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="game-info">
+                        <p className="game-name">{friend.displayName} - {friend.topScoreGame.name}</p>
+                      </div>
+                      <p className="game-time">スコア {friend.topScoreGame.score}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="ranking-section">
+                <h3>直近でよく遊んでいるゲーム ランキング</h3>
+                <p className="ranking-description">
+                  直近2週間のプレイ時間が長いゲームで比較したランキングです。今よく遊ばれているゲームが分かります。
+                </p>
+                <div className="ranking-list">
+                  {friendTopRecentRanking.map((friend, index) => (
+                    <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                      <span className="rank-number">{index + 1}</span>
+                      <img
+                        src={friend.topRecentGame.iconUrl}
+                        alt={friend.topRecentGame.name}
+                        className="game-icon"
+                        onError={(e) => { e.target.style.display = 'none'; }}
+                      />
+                      <div className="game-info">
+                        <p className="game-name">{friend.displayName} - {friend.topRecentGame.name}</p>
+                      </div>
+                      <p className="game-time">{friend.topRecentGame.recentHours}h</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

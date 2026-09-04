@@ -154,6 +154,109 @@ h1 {
 }
 
 
+
+
+/* 非表示ゲーム管理 */
+.hidden-manager-toggle {
+  margin-bottom: 16px;
+}
+
+.hidden-manager-btn {
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid #2a475e;
+  background-color: #16202d;
+  color: #8f98a0;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.hidden-manager-btn:hover {
+  background-color: #2a475e;
+  color: #ffffff;
+}
+
+.hidden-manager-panel {
+  background-color: #16202d;
+  border: 1px solid #2a475e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.hidden-manager-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+@media (max-width: 700px) {
+  .hidden-manager-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hidden-manager-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.hidden-manager-item:hover {
+  background-color: #2a475e;
+}
+
+.hidden-manager-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.hidden-manager-name {
+  font-size: 13px;
+  color: #c7d5e0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* タブ */
+.tab-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid #2a475e;
+}
+
+.tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  color: #8f98a0;
+  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.tab-btn:hover {
+  color: #c7d5e0;
+}
+
+.tab-btn.active {
+  color: #66c0f4;
+  border-bottom-color: #66c0f4;
+}
+
 /* 最近プレイしたゲーム */
 .recent-section {
   margin-bottom: 40px;
