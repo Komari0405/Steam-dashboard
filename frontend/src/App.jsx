@@ -134,16 +134,28 @@ function App() {
   const unplayedCountForBadge = visibleGames.filter(g => g.playtimeHours === 0).length;
 
   if (totalGamesCount > 0 && unplayedCountForBadge >= 10) {
-    badgeCandidates.push('📦 積みゲー王');
+    badgeCandidates.push({
+      label: '📦 積みゲー王',
+      desc: `未プレイのゲームが${unplayedCountForBadge}本もあります。積みゲーが10本以上でこの称号がつきます。`
+    });
   }
   if (totalGamesCount > 0 && unplayedCountForBadge / totalGamesCount >= 0.15) {
-    badgeCandidates.push('🗂️ 積みゲーコレクター');
+    badgeCandidates.push({
+      label: '🗂️ 積みゲーコレクター',
+      desc: `所持ゲームの${Math.round((unplayedCountForBadge / totalGamesCount) * 100)}%が未プレイです。全体の15%以上が積みゲーだとこの称号がつきます。`
+    });
   }
   if (totalGamesCount >= 10 && totalPlaytimeAll / totalGamesCount < 15) {
-    badgeCandidates.push('🦋 浮気性プレイヤー');
+    badgeCandidates.push({
+      label: '🦋 浮気性プレイヤー',
+      desc: `1本あたりの平均プレイ時間が${Math.round(totalPlaytimeAll / totalGamesCount * 10) / 10}時間です。平均15時間未満だとこの称号がつきます。`
+    });
   }
   if (shareTop3.length > 0 && totalPlaytimeAll > 0 && (shareTop3[0].playtimeHours / totalPlaytimeAll) >= 0.25) {
-    badgeCandidates.push('🎯 一点集中型');
+    badgeCandidates.push({
+      label: '🎯 一点集中型',
+      desc: `総プレイ時間の${Math.round((shareTop3[0].playtimeHours / totalPlaytimeAll) * 100)}%が「${shareTop3[0].name}」に集中しています。1本で25%以上占めるとこの称号がつきます。`
+    });
   }
   const achievementRates = visibleGames
     .map(g => achievements[g.appId])
@@ -153,13 +165,22 @@ function App() {
     ? achievementRates.reduce((s, r) => s + r, 0) / achievementRates.length
     : null;
   if (avgAchievementRate !== null && avgAchievementRate < 40) {
-    badgeCandidates.push('🏳️ 実績投げ出しマン');
+    badgeCandidates.push({
+      label: '🏳️ 実績投げ出しマン',
+      desc: `平均実績解除率が${Math.round(avgAchievementRate * 10) / 10}%です。平均40%未満だとこの称号がつきます。`
+    });
   }
   if (onSaleItems.length >= 1) {
-    badgeCandidates.push('🛒 セール戦士(まだ買ってない)');
+    badgeCandidates.push({
+      label: '🛒 セール戦士(まだ買ってない)',
+      desc: `ウィッシュリストに入っている${onSaleItems.length}本がセール中なのに、まだ買っていません。`
+    });
   }
   if (totalGamesCount >= 50) {
-    badgeCandidates.push('🛍️ コレクター気質');
+    badgeCandidates.push({
+      label: '🛍️ コレクター気質',
+      desc: `所持ゲームが${totalGamesCount}本あります。50本以上でこの称号がつきます。`
+    });
   }
 
   const myBadges = badgeCandidates.slice(0, 3);
@@ -175,7 +196,7 @@ function App() {
       lines.push(rankDiffText);
     }
     if (myBadges.length > 0) {
-      lines.push(`称号: ${myBadges.join(' / ')}`);
+      lines.push(`称号: ${myBadges.map(b => b.label).join(' / ')}`);
     }
     lines.push('');
     lines.push('【プレイ時間TOP3】');
@@ -224,7 +245,7 @@ function App() {
     if (myBadges.length > 0) {
       ctx.fillStyle = '#c7d5e0';
       ctx.font = '16px sans-serif';
-      ctx.fillText(`称号: ${myBadges.join(' / ')}`, 40, 140 + extraLineOffset);
+      ctx.fillText(`称号: ${myBadges.map(b => b.label).join(' / ')}`, 40, 140 + extraLineOffset);
       extraLineOffset += 25;
     }
 
@@ -370,7 +391,7 @@ function App() {
               {myBadges.length > 0 && (
                 <div className="home-badges">
                   {myBadges.map(badge => (
-                    <span key={badge} className="share-badge">{badge}</span>
+                    <span key={badge.label} className="share-badge" title={badge.desc}>{badge.label}</span>
                   ))}
                 </div>
               )}
@@ -472,7 +493,7 @@ function App() {
               {myBadges.length > 0 && (
                 <div className="share-preview-badges">
                   {myBadges.map(badge => (
-                    <span key={badge} className="share-badge">{badge}</span>
+                    <span key={badge.label} className="share-badge" title={badge.desc}>{badge.label}</span>
                   ))}
                 </div>
               )}
