@@ -49,9 +49,3 @@ Steamのプレイ履歴・実績・フレンドの遊びっぷりを可視化す
 - **段階的な機能拡張**:MVP(最小限の動くもの)から始め、ユーザー認証・キャッシュ・UIデザインまで段階的に改善
 
 
-
-```
-STEAM_API_KEY=<Steam Web APIキー>
-STEAM_ID=<あなたのSteamID64>
-SESSION_SECRET=<任意の文字列>
-```
