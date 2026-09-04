@@ -927,3 +927,81 @@ h2 {
   margin-top: 60px;
   font-size: 16px;
 }
+
+/* ---------- ローディング表示 ---------- */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 18px;
+}
+
+.loading-text {
+  color: var(--text-dim);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+}
+
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.mini-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.loading-status {
+  display: flex;
+  align-items: center;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- 表示モードの手動切り替え(auto/pc/mobile) ---------- */
+/* data-view="mobile" のときは画面幅に関わらず1カラムに強制 */
+body[data-view="mobile"] .hidden-manager-list,
+body[data-view="mobile"] .recent-grid,
+body[data-view="mobile"] .sale-grid,
+body[data-view="mobile"] .game-grid {
+  grid-template-columns: 1fr !important;
+}
+
+/* data-view="pc" のときは画面幅に関わらずPC向けの列数に強制 */
+body[data-view="pc"] .hidden-manager-list {
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+body[data-view="pc"] .recent-grid {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
+body[data-view="pc"] .sale-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 380px)) !important;
+}
+
+body[data-view="pc"] .game-grid {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+
+body[data-view="pc"] .container {
+  max-width: 1240px;
+}

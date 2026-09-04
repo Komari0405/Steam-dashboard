@@ -42,6 +42,13 @@ function App() {
       return 'dark';
     }
   });
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem('viewMode') || 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
 
   useEffect(() => {
     document.body.setAttribute('data-theme', theme);
@@ -49,6 +56,13 @@ function App() {
       localStorage.setItem('theme', theme);
     } catch {}
   }, [theme]);
+
+  useEffect(() => {
+    document.body.setAttribute('data-view', viewMode);
+    try {
+      localStorage.setItem('viewMode', viewMode);
+    } catch {}
+  }, [viewMode]);
 
   useEffect(() => {
     fetch(`${API_BASE}/auth/user`, { credentials: 'include' })
@@ -155,7 +169,14 @@ function App() {
   }, [authChecked, authUser]);
 
   // 認証チェック中はローディング表示
-  if (!authChecked) return <p className="loading">読み込み中...</p>;
+  if (!authChecked) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <p className="loading-text">読み込み中...</p>
+      </div>
+    );
+  }
 
   // 未ログインならログイン画面のみ表示(データは一切取得しない)
   if (!authUser) {
@@ -173,7 +194,14 @@ function App() {
     );
   }
 
-  if (loading) return <p className="loading">読み込み中...</p>;
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner" />
+        <p className="loading-text">ライブラリを読み込み中...</p>
+      </div>
+    );
+  }
 
   const toggleHidden = (appId) => {
     setHiddenAppIds(prev => {
@@ -572,6 +600,16 @@ function App() {
             >
               {theme === 'dark' ? 'ライトモード' : 'ダークモード'}
             </button>
+            <button
+              className="theme-toggle"
+              onClick={() => {
+                const next = viewMode === 'auto' ? 'mobile' : viewMode === 'mobile' ? 'pc' : 'auto';
+                setViewMode(next);
+              }}
+              title="表示を PC / スマホ / 自動 で切り替えます"
+            >
+              {viewMode === 'auto' ? '表示:自動' : viewMode === 'mobile' ? '表示:スマホ' : '表示:PC'}
+            </button>
           </span>
         </p>
         <div className="identity-row">
@@ -599,7 +637,7 @@ function App() {
           </div>
         )}
         {achievementsLoading && (
-          <p className="status-text">実績データを取得中(少し時間がかかります)</p>
+          <p className="status-text loading-status"><span className="mini-spinner" />実績データを取得中(少し時間がかかります)</p>
         )}
       </header>
 
@@ -777,7 +815,7 @@ function App() {
           )}
 
           {wishlistLoading && (
-            <p className="status-text">ウィッシュリストのセール情報を確認中...</p>
+            <p className="status-text loading-status"><span className="mini-spinner" />ウィッシュリストのセール情報を確認中...</p>
           )}
 
           <div className="controls">
@@ -951,7 +989,7 @@ function App() {
           <h2 className="friend-ranking-title">フレンドランキング</h2>
           <p className="ranking-note">※ Lossless Scalingはランキングから除外しています</p>
           {friendRankingLoading && (
-            <p className="status-text">フレンドのデータを取得中...(少し時間がかかります)</p>
+            <p className="status-text loading-status"><span className="mini-spinner" />フレンドのデータを取得中...(少し時間がかかります)</p>
           )}
 
           {!friendRankingLoading && (
