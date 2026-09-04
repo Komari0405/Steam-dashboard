@@ -64,6 +64,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // ログインが確認できるまで、または未ログインならデータ取得しない
+    if (!authChecked || !authUser) return;
+
     fetch(`${API_BASE}/api/games`, { credentials: 'include' })
       .then(res => res.json())
       .then(data => {
@@ -149,7 +152,26 @@ function App() {
         console.error(err);
         setWishlistLoading(false);
       });
-  }, []);
+  }, [authChecked, authUser]);
+
+  // 認証チェック中はローディング表示
+  if (!authChecked) return <p className="loading">読み込み中...</p>;
+
+  // 未ログインならログイン画面のみ表示(データは一切取得しない)
+  if (!authUser) {
+    return (
+      <div className="container login-gate">
+        <p className="eyebrow">Steam ライブラリ</p>
+        <h1 className="player-name">ログインしてください</h1>
+        <p className="status-text">
+          Steamでログインすると、あなた自身のライブラリ・実績・フレンド情報を見ることができます。
+        </p>
+        <a className="theme-toggle steam-login-btn login-gate-btn" href={`${API_BASE}/auth/steam`}>
+          Steamでログイン
+        </a>
+      </div>
+    );
+  }
 
   if (loading) return <p className="loading">読み込み中...</p>;
 
