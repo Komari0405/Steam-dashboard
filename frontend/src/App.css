@@ -90,7 +90,7 @@ h1 {
 .achievements-status {
   font-size: 13px;
   color: #8f98a0;
-  margin: 12px 0 0;
+  margin: 12px 0 24px;
 }
 
 .controls {
@@ -150,6 +150,142 @@ h1 {
   background-color: #66c0f4;
   color: #1b2838;
   border-color: #66c0f4;
+  font-weight: bold;
+}
+
+
+/* 最近プレイしたゲーム */
+.recent-section {
+  margin-bottom: 40px;
+}
+
+.recent-section h2 {
+  color: #ffffff;
+  margin-bottom: 16px;
+}
+
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .recent-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.recent-card {
+  background: linear-gradient(135deg, #2a475e 0%, #1b2838 100%);
+  border: 1px solid #66c0f4;
+  border-radius: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.recent-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.recent-name {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #ffffff;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-hours {
+  margin: 0;
+  font-size: 12px;
+  color: #66c0f4;
+}
+
+/* セールセクション */
+.sale-section {
+  margin-bottom: 40px;
+}
+
+.sale-section h2 {
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.sale-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .sale-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sale-card {
+  background: linear-gradient(90deg, #1a3a1a 0%, #2a475e 40%);
+  border: 1px solid #66c98a;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sale-icon {
+  width: 80px;
+  height: 38px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.sale-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.sale-name {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sale-price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sale-discount {
+  background-color: #66c98a;
+  color: #1b2838;
+  font-weight: bold;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.sale-original-price {
+  font-size: 12px;
+  color: #8f98a0;
+  text-decoration: line-through;
+}
+
+.sale-current-price {
+  font-size: 15px;
+  color: #66c98a;
   font-weight: bold;
 }
 

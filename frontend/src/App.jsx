@@ -16,6 +16,8 @@ function App() {
   const [isSpinning, setIsSpinning] = useState(false);
   const [friendRanking, setFriendRanking] = useState([]);
   const [friendRankingLoading, setFriendRankingLoading] = useState(true);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/games')
@@ -60,6 +62,17 @@ function App() {
         console.error(err);
         setFriendRankingLoading(false);
       });
+
+    fetch('http://localhost:3000/api/wishlist/prices')
+      .then(res => res.json())
+      .then(data => {
+        setWishlistItems(data.items || []);
+        setWishlistLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setWishlistLoading(false);
+      });
   }, []);
 
   if (loading) return <p className="loading">読み込み中...</p>;
@@ -85,6 +98,11 @@ function App() {
   const totalHours = games.reduce((sum, g) => sum + g.playtimeHours, 0);
   const unplayedCount = games.filter(g => g.playtimeHours === 0).length;
   const unplayedGames = games.filter(g => g.playtimeHours === 0);
+
+  const recentTop3 = [...games]
+    .filter(g => g.playtimeRecentHours > 0)
+    .sort((a, b) => b.playtimeRecentHours - a.playtimeRecentHours)
+    .slice(0, 3);
 
   const spinGacha = () => {
     if (unplayedGames.length === 0) return;
@@ -142,6 +160,15 @@ function App() {
     .sort((a, b) => b.topScoreGame.score - a.topScoreGame.score)
     .slice(0, 10);
 
+  const friendTopRecentRanking = [...validFriends]
+    .filter(f => f.topRecentGame)
+    .sort((a, b) => b.topRecentGame.recentHours - a.topRecentGame.recentHours)
+    .slice(0, 10);
+
+  // セール中のウィッシュリストアイテム(割引率が0より大きいもの)
+  const onSaleItems = wishlistItems.filter(item => item.discountPercent > 0);
+  const otherWishlistItems = wishlistItems.filter(item => item.discountPercent === 0);
+
   return (
     <div className="container">
       <header>
@@ -169,6 +196,63 @@ function App() {
           <p className="achievements-status">実績データを取得中...(少し時間がかかります)</p>
         )}
       </header>
+
+      {recentTop3.length > 0 && (
+        <div className="recent-section">
+          <h2>🔥 最近よくプレイしているゲーム</h2>
+          <div className="recent-grid">
+            {recentTop3.map(game => (
+              <div key={game.appId} className="recent-card">
+                <img
+                  src={game.iconUrl}
+                  alt={game.name}
+                  className="recent-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                <p className="recent-name">{game.name}</p>
+                <p className="recent-hours">直近2週間で{game.playtimeRecentHours}h</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!wishlistLoading && onSaleItems.length > 0 && (
+        <div className="sale-section">
+          <h2>🔥 ウィッシュリストのセール情報({onSaleItems.length}件)</h2>
+          <p className="ranking-description">
+            ウィッシュリストに入っているゲームで、現在セール中のものです。
+          </p>
+          <div className="sale-grid">
+            {onSaleItems.map(item => (
+              <div key={item.appId} className="sale-card">
+                <img
+                  src={item.iconUrl}
+                  alt={item.name}
+                  className="sale-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+                <div className="sale-info">
+                  <p className="sale-name">{item.name}</p>
+                  <div className="sale-price-row">
+                    <span className="sale-discount">-{item.discountPercent}%</span>
+                    <span className="sale-original-price">¥{item.originalPrice.toLocaleString()}</span>
+                    <span className="sale-current-price">¥{item.currentPrice.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!wishlistLoading && onSaleItems.length === 0 && wishlistItems.length > 0 && (
+        <p className="achievements-status">現在セール中のウィッシュリスト商品はありません。</p>
+      )}
+
+      {wishlistLoading && (
+        <p className="achievements-status">ウィッシュリストのセール情報を確認中...</p>
+      )}
 
       <div className="controls">
         <input
@@ -203,7 +287,12 @@ function App() {
             {top10.map((game, index) => (
               <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
                 <span className="rank-number">{index + 1}</span>
-                <img src={game.iconUrl} alt={game.name} className="game-icon" />
+                <img
+                  src={game.iconUrl}
+                  alt={game.name}
+                  className="game-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
                 <div className="game-info">
                   <p className="game-name">{game.name}</p>
                 </div>
@@ -224,7 +313,12 @@ function App() {
             {scoreRanking.map((game, index) => (
               <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
                 <span className="rank-number">{index + 1}</span>
-                <img src={game.iconUrl} alt={game.name} className="game-icon" />
+                <img
+                  src={game.iconUrl}
+                  alt={game.name}
+                  className="game-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
                 <div className="game-info">
                   <p className="game-name">{game.name}</p>
                 </div>
@@ -262,7 +356,12 @@ function App() {
           <div className="game-grid">
             {unplayedGames.map(game => (
               <div key={game.appId} className="game-card unplayed-card">
-                <img src={game.iconUrl} alt={game.name} className="game-icon" />
+                <img
+                  src={game.iconUrl}
+                  alt={game.name}
+                  className="game-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
                 <div className="game-info">
                   <p className="game-name">{game.name}</p>
                 </div>
@@ -291,7 +390,12 @@ function App() {
                   <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
                     <span className="rank-number">{index + 1}</span>
                     {friend.avatarUrl && (
-                      <img src={friend.avatarUrl} alt={friend.displayName} className="game-icon friend-avatar" />
+                      <img
+                      src={friend.avatarUrl}
+                      alt={friend.displayName}
+                      className="game-icon friend-avatar"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     )}
                     <div className="game-info">
                       <p className="game-name">{friend.displayName}</p>
@@ -311,7 +415,12 @@ function App() {
                 {friendTopGameRanking.map((friend, index) => (
                   <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
                     <span className="rank-number">{index + 1}</span>
-                    <img src={friend.topGame.iconUrl} alt={friend.topGame.name} className="game-icon" />
+                    <img
+                      src={friend.topGame.iconUrl}
+                      alt={friend.topGame.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     <div className="game-info">
                       <p className="game-name">{friend.displayName} - {friend.topGame.name}</p>
                     </div>
@@ -330,11 +439,40 @@ function App() {
                 {friendTopScoreRanking.map((friend, index) => (
                   <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
                     <span className="rank-number">{index + 1}</span>
-                    <img src={friend.topScoreGame.iconUrl} alt={friend.topScoreGame.name} className="game-icon" />
+                    <img
+                      src={friend.topScoreGame.iconUrl}
+                      alt={friend.topScoreGame.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
                     <div className="game-info">
                       <p className="game-name">{friend.displayName} - {friend.topScoreGame.name}</p>
                     </div>
                     <p className="game-time">スコア {friend.topScoreGame.score}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="ranking-section">
+              <h3>直近でよく遊んでいるゲーム ランキング</h3>
+              <p className="ranking-description">
+                直近2週間のプレイ時間が長いゲームで比較したランキングです。今よく遊ばれているゲームが分かります。
+              </p>
+              <div className="ranking-list">
+                {friendTopRecentRanking.map((friend, index) => (
+                  <div key={friend.steamId} className={`ranking-item rank-${index + 1}`}>
+                    <span className="rank-number">{index + 1}</span>
+                    <img
+                      src={friend.topRecentGame.iconUrl}
+                      alt={friend.topRecentGame.name}
+                      className="game-icon"
+                      onError={(e) => { e.target.style.display = 'none'; }}
+                    />
+                    <div className="game-info">
+                      <p className="game-name">{friend.displayName} - {friend.topRecentGame.name}</p>
+                    </div>
+                    <p className="game-time">{friend.topRecentGame.recentHours}h</p>
                   </div>
                 ))}
               </div>
@@ -348,7 +486,12 @@ function App() {
           const ach = achievements[game.appId];
           return (
             <div key={game.appId} className="game-card">
-              <img src={game.iconUrl} alt={game.name} className="game-icon" />
+              <img
+                  src={game.iconUrl}
+                  alt={game.name}
+                  className="game-icon"
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
               <div className="game-info">
                 <p className="game-name">{game.name}</p>
                 {ach && ach.hasAchievements && (

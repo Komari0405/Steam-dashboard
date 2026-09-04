@@ -25,6 +25,7 @@ app.get('/api/games', async (req, res) => {
       appId: game.appid,
       name: game.name,
       playtimeHours: Math.round(game.playtime_forever / 60 * 10) / 10,
+      playtimeRecentHours: Math.round((game.playtime_2weeks || 0) / 60 * 10) / 10,
       iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${game.appid}/${game.img_icon_url}.jpg`
     }));
 
@@ -215,10 +216,12 @@ app.get('/api/friends/ranking', async (req, res) => {
         let topGame = null;
         let topScore = 0;
         let topScoreGame = null;
+        let topRecentGame = null;
 
         for (const g of ownedGames) {
           const playtimeHours = g.playtime_forever / 60;
           const gameScore = Math.min(100, Math.log10(g.playtime_forever + 1) * 20);
+          const recentHours = (g.playtime_2weeks || 0) / 60;
 
           if (!topGame || playtimeHours > topGame.playtimeHours) {
             topGame = {
@@ -236,6 +239,14 @@ app.get('/api/friends/ranking', async (req, res) => {
               iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
             };
           }
+
+          if (recentHours > 0 && (!topRecentGame || recentHours > topRecentGame.recentHours)) {
+            topRecentGame = {
+              name: g.name,
+              recentHours: Math.round(recentHours * 10) / 10,
+              iconUrl: `https://media.steampowered.com/steamcommunity/public/images/apps/${g.appid}/${g.img_icon_url}.jpg`
+            };
+          }
         }
 
         results.push({
@@ -245,7 +256,8 @@ app.get('/api/friends/ranking', async (req, res) => {
           gameCount,
           totalPlaytimeHours: Math.round(totalPlaytimeHours * 10) / 10,
           topGame,
-          topScoreGame
+          topScoreGame,
+          topRecentGame
         });
       } catch (err) {
         results.push({
@@ -315,17 +327,16 @@ app.get('/api/wishlist/prices', async (req, res) => {
             results.push({
               appId,
               name: appData.data.name,
-              iconUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`,
               currentPrice: priceInfo.final / 100,
               originalPrice: priceInfo.initial / 100,
               discountPercent: priceInfo.discount_percent
             });
           } else {
-            // 無料ゲームや価格情報がない場合
             results.push({
               appId,
               name: appData.data.name,
-              iconUrl: `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`,
+              iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/capsule_231x87.jpg`,
               currentPrice: null,
               originalPrice: null,
               discountPercent: 0
@@ -336,11 +347,9 @@ app.get('/api/wishlist/prices', async (req, res) => {
         console.error(`appId ${appId} の取得に失敗:`, err.message);
       }
 
-      // レート制限対策
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 割引率が高い順に並べる
     results.sort((a, b) => b.discountPercent - a.discountPercent);
 
     res.json({ items: results });
