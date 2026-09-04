@@ -28,6 +28,7 @@ function App() {
     }
   });
   const [showHiddenManager, setShowHiddenManager] = useState(false);
+  const [anonymousShare, setAnonymousShare] = useState(true);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/games')
@@ -100,6 +101,99 @@ function App() {
   };
 
   const visibleGames = games.filter(g => !hiddenAppIds.includes(g.appId));
+
+  // 共有用データはvisibleGamesのみから作成(SteamIDやAPIキーなど個人特定情報は一切含めない)
+  const shareTop3 = [...visibleGames]
+    .filter(g => g.playtimeHours > 0)
+    .sort((a, b) => b.playtimeHours - a.playtimeHours)
+    .slice(0, 3);
+
+  const generateShareText = () => {
+    const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
+    const lines = [
+      `🎮 ${name}のSteamライブラリ`,
+      `所持ゲーム数: ${visibleGames.length}本`,
+      `総プレイ時間: ${Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間`,
+      '',
+      '【プレイ時間TOP3】',
+      ...shareTop3.map((g, i) => `${i + 1}位 ${g.name} (${g.playtimeHours}h)`)
+    ];
+    return lines.join('\n');
+  };
+
+  const shareToX = () => {
+    const text = generateShareText();
+    const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const downloadShareImage = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 500;
+    const ctx = canvas.getContext('2d');
+
+    // 背景
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, '#2a475e');
+    gradient.addColorStop(1, '#1b2838');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // タイトル
+    const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillText(`🎮 ${name}のSteamライブラリ`, 40, 60);
+
+    // 統計
+    ctx.font = '20px sans-serif';
+    ctx.fillStyle = '#66c0f4';
+    const total = Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0));
+    ctx.fillText(`所持ゲーム数: ${visibleGames.length}本  /  総プレイ時間: ${total}時間`, 40, 110);
+
+    // 区切り線
+    ctx.strokeStyle = '#3a5a75';
+    ctx.beginPath();
+    ctx.moveTo(40, 140);
+    ctx.lineTo(760, 140);
+    ctx.stroke();
+
+    // TOP3見出し
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('🏆 プレイ時間 TOP3', 40, 190);
+
+    // TOP3リスト
+    const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
+    shareTop3.forEach((g, i) => {
+      const y = 240 + i * 70;
+      ctx.fillStyle = medalColors[i] || '#66c0f4';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText(`${i + 1}`, 40, y);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '22px sans-serif';
+      const displayName = g.name.length > 28 ? g.name.slice(0, 28) + '…' : g.name;
+      ctx.fillText(displayName, 90, y);
+
+      ctx.fillStyle = '#66c0f4';
+      ctx.font = '18px sans-serif';
+      ctx.fillText(`${g.playtimeHours}h`, 700, y);
+    });
+
+    // フッター
+    ctx.fillStyle = '#6b7785';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Steam Dashboard', 40, 470);
+
+    const link = document.createElement('a');
+    link.download = 'steam-library-share.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  };
+
+
 
   const filteredGames = visibleGames
     .filter(game => showUnplayed || game.playtimeHours > 0)
@@ -272,6 +366,46 @@ function App() {
 
       {activeTab === 'mine' && (
         <>
+          <div className="share-section">
+            <h2>📤 実績をシェア</h2>
+            <p className="ranking-description">
+              所持ゲーム数・総プレイ時間・TOP3ゲームだけをシェアします(SteamIDやプロフィールURLなどの個人情報は含まれません)。
+            </p>
+            <label className="share-anon-toggle">
+              <input
+                type="checkbox"
+                checked={anonymousShare}
+                onChange={(e) => setAnonymousShare(e.target.checked)}
+              />
+              匿名で共有する(名前・アイコンを表示しない)
+            </label>
+
+            <div className="share-preview">
+              <p className="share-preview-name">
+                🎮 {anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー')}のSteamライブラリ
+              </p>
+              <p className="share-preview-stats">
+                所持ゲーム数: {visibleGames.length}本 / 総プレイ時間: {Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間
+              </p>
+              <div className="share-preview-top3">
+                {shareTop3.map((g, i) => (
+                  <span key={g.appId} className="share-preview-item">
+                    {i + 1}位 {g.name}({g.playtimeHours}h)
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="share-buttons">
+              <button className="share-btn share-btn-x" onClick={shareToX}>
+                🐦 Xでシェア(テキスト)
+              </button>
+              <button className="share-btn share-btn-image" onClick={downloadShareImage}>
+                🖼️ 画像をダウンロード
+              </button>
+            </div>
+          </div>
+
           {recentTop3.length > 0 && (
             <div className="recent-section">
               <h2>🔥 最近よくプレイしているゲーム</h2>
@@ -300,7 +434,13 @@ function App() {
               </p>
               <div className="sale-grid">
                 {onSaleItems.map(item => (
-                  <div key={item.appId} className="sale-card">
+                  <a
+                    key={item.appId}
+                    href={`https://store.steampowered.com/app/${item.appId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="sale-card"
+                  >
                     <img
                       src={item.iconUrl}
                       alt={item.name}
@@ -315,7 +455,7 @@ function App() {
                         <span className="sale-current-price">¥{item.currentPrice.toLocaleString()}</span>
                       </div>
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>

@@ -257,6 +257,91 @@ h1 {
   border-bottom-color: #66c0f4;
 }
 
+
+/* シェア機能 */
+.share-section {
+  background-color: #16202d;
+  border: 1px solid #2a475e;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 32px;
+}
+
+.share-section h2 {
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+
+.share-anon-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c7d5e0;
+  margin: 12px 0 16px;
+  cursor: pointer;
+}
+
+.share-preview {
+  background-color: #1b2838;
+  border: 1px dashed #3a5a75;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.share-preview-name {
+  color: #ffffff;
+  font-weight: bold;
+  margin: 0 0 8px;
+}
+
+.share-preview-stats {
+  color: #66c0f4;
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.share-preview-top3 {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.share-preview-item {
+  font-size: 13px;
+  color: #c7d5e0;
+}
+
+.share-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.share-btn {
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.share-btn:hover {
+  transform: scale(1.03);
+}
+
+.share-btn-x {
+  background-color: #1d9bf0;
+  color: #ffffff;
+}
+
+.share-btn-image {
+  background-color: #66c0f4;
+  color: #1b2838;
+}
+
 /* 最近プレイしたゲーム */
 .recent-section {
   margin-bottom: 40px;
@@ -341,6 +426,14 @@ h1 {
   align-items: center;
   gap: 12px;
   min-width: 0;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.sale-card:hover {
+  transform: scale(1.01);
+  border-color: #8fe0ab;
 }
 
 .sale-icon {
