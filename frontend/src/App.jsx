@@ -127,16 +127,23 @@ function App() {
     rankDiffText = `フレンド内${myPlaytimeRank}位(1位との差 ${diff}時間)`;
   }
 
-  // 自虐ネタ称号の判定(最大3つ)
+  // 自虐ネタ称号の判定(当てはまるもの全部表示)
   const badgeCandidates = [];
   const totalGamesCount = visibleGames.length;
   const totalPlaytimeAll = visibleGames.reduce((s, g) => s + g.playtimeHours, 0);
   const unplayedCountForBadge = visibleGames.filter(g => g.playtimeHours === 0).length;
+  const recentPlayingCount = visibleGames.filter(g => g.playtimeRecentHours > 0).length;
 
   if (totalGamesCount > 0 && unplayedCountForBadge >= 10) {
     badgeCandidates.push({
       label: '📦 積みゲー王',
       desc: `未プレイのゲームが${unplayedCountForBadge}本もあります。積みゲーが10本以上でこの称号がつきます。`
+    });
+  }
+  if (totalGamesCount > 0 && unplayedCountForBadge >= 20) {
+    badgeCandidates.push({
+      label: '🆕 積みゲー新規大量入荷',
+      desc: `未プレイのゲームが${unplayedCountForBadge}本、もはや在庫状態です。20本以上でこの称号がつきます。`
     });
   }
   if (totalGamesCount > 0 && unplayedCountForBadge / totalGamesCount >= 0.15) {
@@ -151,10 +158,22 @@ function App() {
       desc: `1本あたりの平均プレイ時間が${Math.round(totalPlaytimeAll / totalGamesCount * 10) / 10}時間です。平均15時間未満だとこの称号がつきます。`
     });
   }
+  if (totalGamesCount >= 15 && totalPlaytimeAll / totalGamesCount < 5) {
+    badgeCandidates.push({
+      label: '🐢 スロースターター',
+      desc: `所持ゲームは${totalGamesCount}本もあるのに、1本あたりの平均プレイ時間はたった${Math.round(totalPlaytimeAll / totalGamesCount * 10) / 10}時間です。`
+    });
+  }
   if (shareTop3.length > 0 && totalPlaytimeAll > 0 && (shareTop3[0].playtimeHours / totalPlaytimeAll) >= 0.25) {
     badgeCandidates.push({
       label: '🎯 一点集中型',
       desc: `総プレイ時間の${Math.round((shareTop3[0].playtimeHours / totalPlaytimeAll) * 100)}%が「${shareTop3[0].name}」に集中しています。1本で25%以上占めるとこの称号がつきます。`
+    });
+  }
+  if (shareTop3.length > 0 && shareTop3[0].playtimeHours >= 500) {
+    badgeCandidates.push({
+      label: '🎯 やり込み職人',
+      desc: `「${shareTop3[0].name}」を${shareTop3[0].playtimeHours}時間プレイしています。1本で500時間以上でこの称号がつきます。`
     });
   }
   const achievementRates = visibleGames
@@ -170,10 +189,31 @@ function App() {
       desc: `平均実績解除率が${Math.round(avgAchievementRate * 10) / 10}%です。平均40%未満だとこの称号がつきます。`
     });
   }
+  if (avgAchievementRate !== null && avgAchievementRate >= 60) {
+    badgeCandidates.push({
+      label: '🏆 実績マニア',
+      desc: `平均実績解除率が${Math.round(avgAchievementRate * 10) / 10}%です。平均60%以上でこの称号がつきます。`
+    });
+  }
+  const perfectGamesCount = visibleGames
+    .map(g => achievements[g.appId])
+    .filter(a => a && a.hasAchievements && a.totalCount > 0 && a.unlockRate >= 100).length;
+  if (perfectGamesCount >= 1) {
+    badgeCandidates.push({
+      label: '💯 パーフェクショニスト',
+      desc: `実績を100%解除したゲームが${perfectGamesCount}本あります。`
+    });
+  }
   if (onSaleItems.length >= 1) {
     badgeCandidates.push({
       label: '🛒 セール戦士(まだ買ってない)',
       desc: `ウィッシュリストに入っている${onSaleItems.length}本がセール中なのに、まだ買っていません。`
+    });
+  }
+  if (wishlistItems.length > 0 && onSaleItems.length / wishlistItems.length >= 0.3) {
+    badgeCandidates.push({
+      label: '💰 セールに弱い',
+      desc: `ウィッシュリストの${Math.round((onSaleItems.length / wishlistItems.length) * 100)}%が今セール中です。買うタイミングを逃しがちかも?`
     });
   }
   if (totalGamesCount >= 50) {
@@ -182,13 +222,32 @@ function App() {
       desc: `所持ゲームが${totalGamesCount}本あります。50本以上でこの称号がつきます。`
     });
   }
+  if (totalGamesCount >= 100) {
+    badgeCandidates.push({
+      label: '🕹️ ゲームコレクター',
+      desc: `所持ゲームが${totalGamesCount}本、もはやコレクションです。100本以上でこの称号がつきます。`
+    });
+  }
+  if (recentPlayingCount >= 1) {
+    badgeCandidates.push({
+      label: '🔥 今が旬',
+      desc: `直近2週間でプレイしているゲームが${recentPlayingCount}本あります。今まさに遊んでいる証拠です。`
+    });
+  }
+  if (myPlaytimeRank === 1) {
+    badgeCandidates.push({
+      label: '👑 フレンド内No.1ゲーマー',
+      desc: 'フレンド内で合計プレイ時間が最も長いです。'
+    });
+  }
 
-  const myBadges = badgeCandidates.slice(0, 3);
+  const myBadges = badgeCandidates;
+
 
   const generateShareText = () => {
     const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
     const lines = [
-      `🎮 ${name}のSteamライブラリ`,
+      `${name}のSteamライブラリ`,
       `所持ゲーム数: ${visibleGames.length}本`,
       `総プレイ時間: ${Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間`,
     ];
@@ -227,7 +286,7 @@ function App() {
     const name = anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー');
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 32px sans-serif';
-    ctx.fillText(`🎮 ${name}のSteamライブラリ`, 40, 60);
+    ctx.fillText(`${name}のSteamライブラリ`, 40, 60);
 
     // 統計
     ctx.font = '20px sans-serif';
@@ -239,7 +298,7 @@ function App() {
     if (rankDiffText) {
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 18px sans-serif';
-      ctx.fillText(`🔥 ${rankDiffText}`, 40, 140);
+      ctx.fillText(rankDiffText, 40, 140);
       extraLineOffset += 25;
     }
     if (myBadges.length > 0) {
@@ -260,7 +319,7 @@ function App() {
     // TOP3見出し
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 24px sans-serif';
-    ctx.fillText('🏆 プレイ時間 TOP3', 40, lineY + 50);
+    ctx.fillText('プレイ時間 TOP3', 40, lineY + 50);
 
     // TOP3リスト
     const medalColors = ['#ffd700', '#c0c0c0', '#cd7f32'];
@@ -382,35 +441,33 @@ function App() {
   return (
     <div className="container">
       <header>
-        {profile && (
-          <div className="profile-bar">
+        <p className="eyebrow">Steam ライブラリ</p>
+        <div className="identity-row">
+          {profile && (
             <img src={profile.avatarUrl} alt={profile.displayName} className="profile-avatar" />
-            <div className="profile-text">
-              <span className="profile-name">{profile.displayName}</span>
-              <span className="profile-sub">Steam ライブラリダッシュボード</span>
-              {myBadges.length > 0 && (
-                <div className="home-badges">
-                  {myBadges.map(badge => (
-                    <span key={badge.label} className="share-badge" title={badge.desc}>{badge.label}</span>
-                  ))}
-                </div>
-              )}
-            </div>
+          )}
+          <h1 className="player-name">{profile ? profile.displayName : 'プレイヤー'}</h1>
+        </div>
+        <div className="stat-line">
+          <div className="stat-block">
+            <span className="stat-value">{visibleGames.length}</span>
+            <span className="stat-label">所持ゲーム</span>
           </div>
-        )}
-        <h1>🎮 Steam ライブラリ</h1>
-        <div className="stats">
-          <div className="stat-card">
-            <span className="stat-number">{visibleGames.length}</span>
-            <span className="stat-label">所持ゲーム数</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-number">{Math.round(totalHours)}</span>
+          <div className="stat-divider" />
+          <div className="stat-block">
+            <span className="stat-value">{Math.round(totalHours)}</span>
             <span className="stat-label">総プレイ時間(h)</span>
           </div>
         </div>
+        {myBadges.length > 0 && (
+          <div className="home-badges">
+            {myBadges.map(badge => (
+              <span key={badge.label} className="tag-badge" title={badge.desc}>{badge.label}</span>
+            ))}
+          </div>
+        )}
         {achievementsLoading && (
-          <p className="achievements-status">実績データを取得中...(少し時間がかかります)</p>
+          <p className="status-text">実績データを取得中(少し時間がかかります)</p>
         )}
       </header>
 
@@ -419,7 +476,7 @@ function App() {
           className="hidden-manager-btn"
           onClick={() => setShowHiddenManager(!showHiddenManager)}
         >
-          🙈 非表示ゲーム管理{hiddenAppIds.length > 0 ? `(${hiddenAppIds.length}件非表示中)` : ''}
+          非表示ゲーム管理{hiddenAppIds.length > 0 ? `(${hiddenAppIds.length}件非表示中)` : ''}
         </button>
       </div>
 
@@ -467,7 +524,7 @@ function App() {
       {activeTab === 'mine' && (
         <>
           <div className="share-section">
-            <h2>📤 実績をシェア</h2>
+            <h2>実績をシェア</h2>
             <p className="ranking-description">
               所持ゲーム数・総プレイ時間・TOP3ゲームだけをシェアします(SteamIDやプロフィールURLなどの個人情報は含まれません)。
             </p>
@@ -482,18 +539,18 @@ function App() {
 
             <div className="share-preview">
               <p className="share-preview-name">
-                🎮 {anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー')}のSteamライブラリ
+                {anonymousShare ? '匿名プレイヤー' : (profile ? profile.displayName : 'プレイヤー')}のSteamライブラリ
               </p>
               <p className="share-preview-stats">
                 所持ゲーム数: {visibleGames.length}本 / 総プレイ時間: {Math.round(visibleGames.reduce((s, g) => s + g.playtimeHours, 0))}時間
               </p>
               {rankDiffText && (
-                <p className="share-preview-rank">🔥 {rankDiffText}</p>
+                <p className="share-preview-rank">{rankDiffText}</p>
               )}
               {myBadges.length > 0 && (
                 <div className="share-preview-badges">
                   {myBadges.map(badge => (
-                    <span key={badge.label} className="share-badge" title={badge.desc}>{badge.label}</span>
+                    <span key={badge.label} className="tag-badge" title={badge.desc}>{badge.label}</span>
                   ))}
                 </div>
               )}
@@ -508,17 +565,17 @@ function App() {
 
             <div className="share-buttons">
               <button className="share-btn share-btn-x" onClick={shareToX}>
-                🐦 Xでシェア(テキスト)
+                Xでシェア
               </button>
               <button className="share-btn share-btn-image" onClick={downloadShareImage}>
-                🖼️ 画像をダウンロード
+                画像を保存
               </button>
             </div>
           </div>
 
           {recentTop3.length > 0 && (
             <div className="recent-section">
-              <h2>🔥 最近よくプレイしているゲーム</h2>
+              <h2>最近よくプレイしているゲーム</h2>
               <div className="recent-grid">
                 {recentTop3.map(game => (
                   <div key={game.appId} className="recent-card">
@@ -538,7 +595,7 @@ function App() {
 
           {!wishlistLoading && onSaleItems.length > 0 && (
             <div className="sale-section">
-              <h2>🔥 ウィッシュリストのセール情報({onSaleItems.length}件)</h2>
+              <h2>ウィッシュリストのセール情報({onSaleItems.length}件)</h2>
               <p className="ranking-description">
                 ウィッシュリストに入っているゲームで、現在セール中のものです。
               </p>
@@ -572,11 +629,11 @@ function App() {
           )}
 
           {!wishlistLoading && onSaleItems.length === 0 && wishlistItems.length > 0 && (
-            <p className="achievements-status">現在セール中のウィッシュリスト商品はありません。</p>
+            <p className="status-text">現在セール中のウィッシュリスト商品はありません。</p>
           )}
 
           {wishlistLoading && (
-            <p className="achievements-status">ウィッシュリストのセール情報を確認中...</p>
+            <p className="status-text">ウィッシュリストのセール情報を確認中...</p>
           )}
 
           <div className="controls">
@@ -607,7 +664,7 @@ function App() {
 
           {showRanking && (
             <div className="ranking-section">
-              <h2>🏆 プレイ時間 TOP10</h2>
+              <h2>プレイ時間 TOP10</h2>
               <div className="ranking-list">
                 {top10.map((game, index) => (
                   <div key={game.appId} className={`ranking-item rank-${index + 1}`}>
@@ -630,7 +687,7 @@ function App() {
 
           {showRanking && (
             <div className="ranking-section">
-              <h2>⭐ 総合スコアランキング(β版)</h2>
+              <h2>総合スコアランキング(β版)</h2>
               <p className="ranking-description">
                 プレイ時間と実績解除率をもとに算出したスコアのランキングです。長く遊んでいるだけでなく、実績もしっかり解除しているゲームほど上位に来ます。
               </p>
@@ -656,7 +713,7 @@ function App() {
 
           {unplayedGames.length > 0 && (
             <div className="unplayed-section">
-              <h2>📦 積みゲー一覧({unplayedGames.length}本)</h2>
+              <h2>積みゲー一覧({unplayedGames.length}本)</h2>
               <p className="ranking-description">
                 買ったままプレイできていないゲームです。気分転換に何か1本始めてみませんか?
               </p>
@@ -667,7 +724,7 @@ function App() {
                   onClick={spinGacha}
                   disabled={isSpinning}
                 >
-                  {isSpinning ? '抽選中...' : '🎰 積みゲーガチャを回す'}
+                  {isSpinning ? '抽選中...' : '積みゲーガチャを回す'}
                 </button>
                 {gachaResult && !isSpinning && (
                   <div className="gacha-result">
@@ -723,10 +780,10 @@ function App() {
 
       {activeTab === 'friends' && (
         <div className="friend-ranking-block">
-          <h2 className="friend-ranking-title">👥 フレンドランキング</h2>
+          <h2 className="friend-ranking-title">フレンドランキング</h2>
           <p className="ranking-note">※ Lossless Scalingはランキングから除外しています</p>
           {friendRankingLoading && (
-            <p className="achievements-status">フレンドのデータを取得中...(少し時間がかかります)</p>
+            <p className="status-text">フレンドのデータを取得中...(少し時間がかかります)</p>
           )}
 
           {!friendRankingLoading && (
