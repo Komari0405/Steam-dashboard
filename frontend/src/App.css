@@ -26,6 +26,27 @@
   --positive: #7fc79e;
 }
 
+[data-theme="light"] {
+  --bg: #f3f1ea;
+  --panel: #fbfaf6;
+  --panel-raised: #eeece3;
+  --border: #ddd8ca;
+  --border-strong: #c7c0ac;
+  --text: #26241d;
+  --text-dim: #635e4f;
+  --text-faint: #928c78;
+  --accent: #b5661f;
+  --accent-dim: #d99042;
+  --gold: #a3771c;
+  --silver: #6b6656;
+  --bronze: #97572c;
+  --positive: #3f7d51;
+}
+
+body {
+  transition: background-color 0.15s, color 0.15s;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -45,9 +66,9 @@ h1, h2, h3 {
 
 .container {
   width: 100%;
-  max-width: 980px;
+  max-width: 1240px;
   margin: 0 auto;
-  padding: 48px 32px 80px;
+  padding: 48px 40px 80px;
 }
 
 /* ---------- Header ---------- */
@@ -64,6 +85,25 @@ header {
   letter-spacing: 0.08em;
   color: var(--text-faint);
   margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-toggle {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-faint);
+  font-family: 'IBM Plex Sans JP', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text-dim);
 }
 
 .identity-row {
@@ -389,7 +429,10 @@ h2 {
 .recent-card {
   background-color: var(--panel);
   padding: 18px 16px;
-  text-align: left;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .recent-icon {
@@ -406,6 +449,7 @@ h2 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: center;
 }
 
 .recent-hours {
@@ -426,7 +470,7 @@ h2 {
 
 .sale-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 380px));
   gap: 1px;
   background-color: var(--border);
   border: 1px solid var(--border);
@@ -465,7 +509,7 @@ h2 {
 
 .sale-info {
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
 }
 
 .sale-name {
@@ -475,6 +519,7 @@ h2 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
 }
 
 .sale-price-row {
@@ -570,6 +615,7 @@ h2 {
 
 .ranking-list {
   border-top: 1px solid var(--border);
+  max-width: 760px;
 }
 
 .ranking-item {
@@ -627,6 +673,16 @@ h2 {
   text-overflow: ellipsis;
   text-align: left;
   min-width: 0;
+}
+
+/* ランキング系リストではタイトルを中央揃えにし、アイコンとの間隔を詰める */
+.ranking-item .game-info {
+  flex: 0 1 auto;
+  max-width: 280px;
+}
+
+.ranking-item .game-name {
+  text-align: center;
 }
 
 .game-achievement {
@@ -762,6 +818,12 @@ h2 {
   background-color: var(--border);
   border: 1px solid var(--border);
   width: 100%;
+}
+
+@media (min-width: 1100px) {
+  .game-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 @media (max-width: 900px) {

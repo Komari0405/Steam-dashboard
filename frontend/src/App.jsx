@@ -29,6 +29,20 @@ function App() {
   });
   const [showHiddenManager, setShowHiddenManager] = useState(false);
   const [anonymousShare, setAnonymousShare] = useState(true);
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('theme') || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  useEffect(() => {
+    document.body.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('theme', theme);
+    } catch {}
+  }, [theme]);
 
   useEffect(() => {
     fetch('http://localhost:3000/api/games')
@@ -441,7 +455,15 @@ function App() {
   return (
     <div className="container">
       <header>
-        <p className="eyebrow">Steam ライブラリ</p>
+        <p className="eyebrow">
+          <span>Steam ライブラリ</span>
+          <button
+            className="theme-toggle"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            {theme === 'dark' ? 'ライトモード' : 'ダークモード'}
+          </button>
+        </p>
         <div className="identity-row">
           {profile && (
             <img src={profile.avatarUrl} alt={profile.displayName} className="profile-avatar" />
